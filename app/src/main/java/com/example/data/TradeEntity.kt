@@ -26,6 +26,8 @@ data class TradeEntity(
     val riskPercent: Double,
     val maxRiskDollars: Double,
     val visibility: String,
+    val publicPostAudience: String = "everyone",
+    val winRatePercent: Double? = null,
     val status: String = "WINNER",
     val timestamp: Long,
     val timeAgo: String,
@@ -71,9 +73,13 @@ data class TradeEntity(
         riskPercent = riskPercent,
         maxRiskDollars = maxRiskDollars,
         visibility = if (visibility == "PRIVATE") TradeVisibility.PRIVATE else TradeVisibility.PUBLIC,
+        publicPostAudience = publicPostAudience,
+        winRatePercent = winRatePercent,
         status = when (status) {
             "OPEN" -> com.example.model.TradeStatus.OPEN
             "STOPPED" -> com.example.model.TradeStatus.STOPPED
+            "BREAKEVEN" -> com.example.model.TradeStatus.BREAKEVEN
+            "CANCELLED" -> com.example.model.TradeStatus.CANCELLED
             else -> com.example.model.TradeStatus.WINNER
         },
         timestamp = timestamp,
@@ -122,6 +128,8 @@ data class TradeEntity(
             riskPercent = trade.riskPercent,
             maxRiskDollars = trade.maxRiskDollars,
             visibility = trade.visibility.name,
+            publicPostAudience = trade.publicPostAudience,
+            winRatePercent = trade.winRatePercent,
             status = trade.status.name,
             timestamp = trade.timestamp,
             timeAgo = trade.timeAgo,
