@@ -22,30 +22,16 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
-  signingConfigs {
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
-    }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
-  }
-
   buildTypes {
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      // No signingConfig set — produces an unsigned release AAB/APK for now.
+      // Add a signingConfig here later when you're ready to sign for release.
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    // debug build type uses AGP's default auto-generated debug signing config —
+    // no keystore file needed, works out of the box on any machine/CI runner.
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
