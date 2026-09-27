@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,208 +15,136 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.example.ui.FxViewModel
 import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.EmeraldProfit
 
 @Composable
-fun SettingsScreen(
-    viewModel: FxViewModel,
-    onLogout: () -> Unit
-) {
+fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
+    var showProfileEditor by remember { mutableStateOf(false) }
+    var showPinEditor by remember { mutableStateOf(false) }
+    var showPrivacyEditor by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .testTag("settings_screen_container"),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("settings_screen_container"),
         contentPadding = PaddingValues(16.dp)
     ) {
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = user?.name?.take(2)?.uppercase() ?: "AV",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = ElectricCyan
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = user?.name ?: "Alex Vance",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = user?.email ?: "alex.vance@quant.ai",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Column(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                ProfileAvatar(user?.name ?: "Trader", user?.photoUri, 80.dp)
+                Spacer(Modifier.height(12.dp))
+                Text(user?.name ?: "Trader", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+                Text(user?.handle ?: "@trader", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(user?.email ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-
         item {
-            SettingsGroup(title = "Account") {
-                SettingsItem(
-                    icon = Icons.Default.Person,
-                    title = "Edit Profile",
-                    onClick = { viewModel.showToast("Profile editing coming soon") }
-                )
-                SettingsItem(
-                    icon = Icons.Default.Security,
-                    title = "Security & Privacy",
-                    onClick = { viewModel.showToast("Security settings coming soon") }
-                )
+            SettingsGroup("Account") {
+                SettingsItem(Icons.Default.Person, "Edit Profile", "Name, handle and profile picture") { showProfileEditor = true }
+                SettingsItem(Icons.Default.Security, "App Lock PIN", if (viewModel.hasAppPin) "Enabled • 4 digits" else "Not configured") { showPinEditor = true }
+                SettingsItem(Icons.Default.Visibility, "Public post visibility", if (user?.publicPostAudience == "followers") "Followers only" else "Everyone") { showPrivacyEditor = true }
             }
         }
-
         item {
-            SettingsGroup(title = "Preferences") {
-                SettingsItem(
-                    icon = Icons.Default.Palette,
-                    title = "Theme Settings",
-                    subtitle = themeMode.name.lowercase().capitalize(),
-                    onClick = { viewModel.toggleThemeModal(true) }
-                )
-                SettingsItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notifications",
-                    onClick = { viewModel.showToast("Notification settings coming soon") }
-                )
+            SettingsGroup("Preferences") {
+                SettingsItem(Icons.Default.Palette, "Theme Settings", themeMode.name.lowercase().replaceFirstChar { it.uppercase() }) { viewModel.toggleThemeModal(true) }
+                SettingsItem(Icons.Default.Notifications, "Notifications") { viewModel.showToast("Notification settings coming soon") }
             }
         }
-
         item {
-            SettingsGroup(title = "Support") {
-                SettingsItem(
-                    icon = Icons.Default.Help,
-                    title = "Help Center",
-                    onClick = { viewModel.showToast("Opening Help Center...") }
-                )
-                SettingsItem(
-                    icon = Icons.Default.Info,
-                    title = "About FX Journal",
-                    onClick = { viewModel.showToast("FX Journal v2.4.0") }
-                )
+            SettingsGroup("Support") {
+                SettingsItem(Icons.Default.Help, "Help Center") { viewModel.showToast("Opening Help Center...") }
+                SettingsItem(Icons.Default.Info, "About FX Journal") { viewModel.showToast("FX Journal v2.4.0") }
             }
         }
-
         item {
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(
-                onClick = {
-                    viewModel.logout()
-                    onLogout()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .testTag("logout_button"),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
-                    contentColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Icon(Icons.Default.Logout, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Sign Out", fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(32.dp))
+            Button(onClick = { viewModel.logout(); onLogout() }, modifier = Modifier.fillMaxWidth().height(56.dp).testTag("logout_button"), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = .2f), contentColor = MaterialTheme.colorScheme.error)) {
+                Icon(Icons.Default.Logout, null); Spacer(Modifier.width(8.dp)); Text("Sign Out", fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(64.dp))
+            Spacer(Modifier.height(64.dp))
         }
     }
+    if (showProfileEditor) ProfileEditor(user?.name ?: "", user?.handle ?: "", user?.photoUri, user?.publicPostAudience ?: "everyone", viewModel) { showProfileEditor = false }
+    if (showPinEditor) PinEditor(viewModel) { showPinEditor = false }
+    if (showPrivacyEditor) PrivacyEditor(user?.publicPostAudience ?: "everyone", viewModel) { showPrivacyEditor = false }
+}
+
+@Composable
+private fun ProfileAvatar(name: String, photoUri: String?, size: androidx.compose.ui.unit.Dp) {
+    Box(Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), Alignment.Center) {
+        if (!photoUri.isNullOrBlank()) AsyncImage(photoUri, contentDescription = "Profile picture", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        else Text(name.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase().ifBlank { "TR" }, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = ElectricCyan)
+    }
+}
+
+@Composable
+private fun ProfileEditor(name: String, handle: String, currentPhoto: String?, audience: String, viewModel: FxViewModel, onClose: () -> Unit) {
+    var editedName by remember { mutableStateOf(name) }
+    var editedHandle by remember { mutableStateOf(handle) }
+    var photo by remember { mutableStateOf<android.net.Uri?>(currentPhoto?.let(android.net.Uri::parse)) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { it?.let { photo = it } }
+    AlertDialog(onDismissRequest = onClose, title = { Text("Edit profile") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.fillMaxWidth(), Alignment.Center) { ProfileAvatar(editedName, photo?.toString(), 76.dp) }
+            OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.AddAPhoto, null); Spacer(Modifier.width(8.dp)); Text("Choose profile picture") }
+            OutlinedTextField(editedName, { editedName = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(editedHandle, { editedHandle = it }, label = { Text("Handle") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        }
+    }, confirmButton = { TextButton(onClick = { viewModel.updateProfile(editedName, editedHandle, photo, audience, onClose) }) { Text("Save") } }, dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } })
+}
+
+@Composable
+private fun PrivacyEditor(current: String, viewModel: FxViewModel, onClose: () -> Unit) {
+    var selected by remember { mutableStateOf(current) }
+    AlertDialog(onDismissRequest = onClose, title = { Text("Who can see my public posts?") }, text = {
+        Column {
+            Text("Choose the default audience for posts marked public.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            listOf("everyone" to "Everyone", "followers" to "Followers only").forEach { (value, label) ->
+                Row(Modifier.fillMaxWidth().clickable { selected = value }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected == value, { selected = value }); Text(label)
+                }
+            }
+        }
+    }, confirmButton = { TextButton(onClick = { viewModel.updateProfile(current, viewModel.currentUser.value?.handle ?: "", null, selected, onClose) }) { Text("Save") } }, dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } })
+}
+
+@Composable
+private fun PinEditor(viewModel: FxViewModel, onClose: () -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(onDismissRequest = onClose, title = { Text(if (viewModel.hasAppPin) "Change app lock PIN" else "Set app lock PIN") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("The app will ask for this PIN after it goes to the background.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(pin, { if (it.length <= 4 && it.all(Char::isDigit)) pin = it }, label = { Text("New 4-digit PIN") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(confirm, { if (it.length <= 4 && it.all(Char::isDigit)) confirm = it }, label = { Text("Confirm PIN") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+        }
+    }, confirmButton = { TextButton(onClick = { if (pin.length != 4 || pin != confirm) error = "PINs must match and contain exactly 4 digits" else viewModel.setAppPin(pin) { onClose() } }) { Text("Save PIN") } }, dismissButton = { Row { if (viewModel.hasAppPin) TextButton(onClick = { viewModel.removeAppPin(); onClose() }) { Text("Disable") }; TextButton(onClick = onClose) { Text("Cancel") } } })
 }
 
 @Composable
 fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(
-            text = title.uppercase(),
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
-        )
-        Column(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-        ) {
-            content()
-        }
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Text(title.uppercase(), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp, bottom = 8.dp))
+        Column(Modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow)) { content() }
     }
 }
 
 @Composable
-fun SettingsItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String? = null,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = ElectricCyan,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
+fun SettingsItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String? = null, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onClick() }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh), Alignment.Center) { Icon(icon, null, tint = ElectricCyan, modifier = Modifier.size(20.dp)) }
+        Spacer(Modifier.width(16.dp)); Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)); if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

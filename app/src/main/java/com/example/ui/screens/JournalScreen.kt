@@ -76,6 +76,7 @@ fun JournalScreen(
     onTradeClick: (Trade) -> Unit
 ) {
     val trades by viewModel.trades.collectAsStateWithLifecycle()
+    val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val journalTab by viewModel.journalTab.collectAsStateWithLifecycle()
     val selectedFilter by viewModel.journalPairFilter.collectAsStateWithLifecycle()
@@ -83,7 +84,7 @@ fun JournalScreen(
     var selectedDate by remember { mutableStateOf<Date?>(null) }
     var dailyTrades by remember { mutableStateOf<List<Trade>>(emptyList()) }
 
-    val userTrades = trades.filter { it.authorHandle == "@QuantAlex" }
+    val userTrades = trades.filter { it.authorHandle == (user?.handle ?: "@QuantAlex") }
 
     val filteredTrades = userTrades.filter { trade ->
         val matchesVisibility = when (journalTab) {
@@ -155,7 +156,7 @@ fun JournalScreen(
                             Column {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = "Alex Vance",
+                                    text = user?.name ?: "Trader",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -168,7 +169,7 @@ fun JournalScreen(
                                     )
                                 }
                                 Text(
-                                    text = "@QuantAlex · Prop Verified Trader",
+                                    text = "${user?.handle ?: "@trader"} · Prop Verified Trader",
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

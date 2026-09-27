@@ -31,12 +31,19 @@ import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,16 +70,28 @@ fun FeedScreen(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val feedTab by viewModel.feedTab.collectAsStateWithLifecycle()
     val pairFilter by viewModel.feedPairFilter.collectAsStateWithLifecycle()
+    val strategyFilter by viewModel.feedStrategyFilter.collectAsStateWithLifecycle()
+    val traders by viewModel.traders.collectAsStateWithLifecycle()
+    val user by viewModel.currentUser.collectAsStateWithLifecycle()
+    var showPairSearch by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showStrategySearch by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var sortByR by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
+    val followingHandles = traders.filter { it.isFollowing }.map { it.handle }.toSet()
     val filteredTrades = trades.filter { trade ->
+        val audienceAllows = trade.visibility != com.example.model.TradeVisibility.PUBLIC ||
+            trade.publicPostAudience == "everyone" ||
+            trade.authorHandle == user?.handle ||
+            trade.authorHandle in followingHandles
         val matchesTab = if (feedTab == "following") {
             trade.authorHandle in listOf("@QuantAlex", "@SatoshiScalper", "@ElenaGold")
         } else true
 
         val matchesPair = if (pairFilter == "All Pairs") true else trade.pair.contains(pairFilter, ignoreCase = true)
+        val matchesStrategy = if (strategyFilter == "All") true else trade.setupStrategy.contains(strategyFilter, ignoreCase = true)
 
-        matchesTab && matchesPair
-    }
+        audienceAllows && matchesTab && matchesPair && matchesStrategy
+    }.let { result -> if (sortByR) result.sortedByDescending { it.rMultiple } else result.sortedByDescending { it.timestamp } }
 
     Box(
         modifier = Modifier
@@ -189,7 +208,7 @@ fun FeedScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (pairFilter == "All Pairs") MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer)
-                                .clickable { viewModel.setFeedPairFilter("All Pairs") }
+                                .clickable { showPairSearch = true }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                                 .testTag("filter_all_pairs"),
                             verticalAlignment = Alignment.CenterVertically
@@ -202,7 +221,7 @@ fun FeedScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "All Pairs",
+                                text = if (pairFilter == "All Pairs") "All Pairs" else pairFilter,
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -221,7 +240,7 @@ fun FeedScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .clickable { viewModel.showToast("Strategy filter: SMC, Liquidity, Scalp") }
+                                .clickable { showStrategySearch = true }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -233,7 +252,7 @@ fun FeedScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Strategy",
+                                text = if (strategyFilter == "All") "Strategy" else strategyFilter,
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -251,7 +270,8 @@ fun FeedScreen(
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                                .background(if (sortByR) EmeraldProfit.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceContainerLowest)
+                                .clickable { sortByR = !sortByR }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -303,19 +323,53 @@ fun FeedScreen(
                 }
             }
 
-            // Feed Items Stream
-            items(filteredTrades, key = { it.id }) { trade ->
-                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    TradeCard(
-                        trade = trade,
-                        onClick = { onTradeClick(trade) },
-                        onUpvoteClick = { viewModel.toggleUpvote(trade) },
-                        onCommentClick = { onTradeClick(trade) },
-                        onBookmarkClick = { viewModel.toggleBookmark(trade) },
-                        onShareClick = { viewModel.showToast("Setup copied to clipboard!") }
-                    )
+            if (feedTab == "following") {
+                item {
+                    Text("Profiles you follow", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp))
+                }
+                items(traders.filter { it.isFollowing }, key = { "following_${it.id}" }) { trader ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), Alignment.Center) {
+                            Text(trader.name.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""), color = ElectricCyan, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) { Text(trader.name, fontWeight = FontWeight.Bold); if (trader.isVerified) Icon(Icons.Default.Verified, null, tint = ElectricCyan, modifier = Modifier.size(15.dp).padding(start = 2.dp)) }
+                            Text(trader.handle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${trader.followers} followers • ${trader.netRGain}", style = MaterialTheme.typography.labelSmall, color = EmeraldProfit)
+                        }
+                        Button(onClick = { viewModel.toggleFollowTrader(trader.id) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) { Text("Following", style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+                if (traders.none { it.isFollowing }) item { Text("You are not following anyone yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
+            } else {
+                items(filteredTrades, key = { it.id }) { trade ->
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { viewModel.showToast("Setup copied to clipboard!") })
+                    }
                 }
             }
+        }
+
+        if (showPairSearch) {
+            FeedFilterDialog(
+                title = "Search symbol",
+                placeholder = "EUR/USD, BTC/USDT, XAU/USD",
+                options = listOf("All Pairs") + trades.map { it.pair }.distinct().sorted(),
+                selected = pairFilter,
+                onSelect = { viewModel.setFeedPairFilter(it); showPairSearch = false },
+                onDismiss = { showPairSearch = false }
+            )
+        }
+        if (showStrategySearch) {
+            FeedFilterDialog(
+                title = "Search strategy",
+                placeholder = "SMC, Liquidity, Scalp...",
+                options = listOf("All") + trades.map { it.setupStrategy }.distinct().sorted(),
+                selected = strategyFilter,
+                onSelect = { viewModel.setFeedStrategyFilter(it); showStrategySearch = false },
+                onDismiss = { showStrategySearch = false }
+            )
         }
 
         // Tactical Floating Filter Trigger (Bottom Right Reach Zone)

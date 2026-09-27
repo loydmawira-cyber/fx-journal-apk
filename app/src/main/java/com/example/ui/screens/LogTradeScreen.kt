@@ -95,13 +95,13 @@ fun LogTradeScreen(
     onBack: () -> Unit
 ) {
     var visibility by remember { mutableStateOf(TradeVisibility.PRIVATE) }
-    var status by remember { mutableStateOf(TradeStatus.OPEN) }
     var direction by remember { mutableStateOf(TradeDirection.LONG) }
     var selectedPair by remember { mutableStateOf("EUR/USD") }
 
-    var entryPriceText by remember { mutableStateOf("1.09680") }
-    var stopLossText by remember { mutableStateOf("1.09450") }
-    var takeProfitText by remember { mutableStateOf("1.10350") }
+    var entryPriceText by remember { mutableStateOf("") }
+    var stopLossText by remember { mutableStateOf("") }
+    var takeProfitText by remember { mutableStateOf("") }
+    var winRateText by remember { mutableStateOf("") }
     var positionLots by remember { mutableDoubleStateOf(2.50) }
 
     var selectedStrategy by remember { mutableStateOf("SMC / Liquidity Sweep") }
@@ -126,11 +126,12 @@ fun LogTradeScreen(
     )
 
     var isSaving by remember { mutableStateOf(false) }
+    var draftCount by remember { mutableStateOf(viewModel.draftCount) }
 
     // Computations
     val entry = entryPriceText.toDoubleOrNull() ?: 1.09680
-    val sl = stopLossText.toDoubleOrNull() ?: 1.09450
-    val tp = takeProfitText.toDoubleOrNull() ?: 1.10350
+    val sl = stopLossText.toDoubleOrNull() ?: if (direction == TradeDirection.LONG) entry - 0.0023 else entry + 0.0023
+    val tp = takeProfitText.toDoubleOrNull() ?: if (direction == TradeDirection.LONG) entry + 0.0067 else entry - 0.0067
 
     val rrRatio = remember(direction, entry, sl, tp) {
         if (direction == TradeDirection.LONG) {
@@ -219,7 +220,7 @@ fun LogTradeScreen(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable { viewModel.showToast("2 drafts saved in local storage") }
+                    .clickable { viewModel.saveDraft(); draftCount = viewModel.draftCount }
                     .padding(horizontal = 8.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -231,7 +232,7 @@ fun LogTradeScreen(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Drafts (2)",
+                    text = "Drafts ($draftCount)",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp
@@ -314,71 +315,16 @@ fun LogTradeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            // Outcome / Status Selector
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .padding(4.dp)
-                ) {
+                if (visibility == TradeVisibility.PUBLIC) {
                     Text(
-                        text = "TRADE OUTCOME",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        ),
-                        modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "This trade will appear in the feed according to your public-post audience setting.",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        val statuses = listOf(
-                            TradeStatus.OPEN to "RUNNING",
-                            TradeStatus.WINNER to "WINNER",
-                            TradeStatus.STOPPED to "STOPPED"
-                        )
-                        statuses.forEach { (s, label) ->
-                            val isSelected = status == s
-                            val activeColor = when(s) {
-                                TradeStatus.OPEN -> ElectricCyan
-                                TradeStatus.WINNER -> EmeraldProfit
-                                TradeStatus.STOPPED -> CrimsonLossBright
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(4.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) activeColor.copy(alpha = 0.15f) else Color.Transparent)
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) activeColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                                        RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable { status = s }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp
-                                    ),
-                                    color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
                 }
-                Spacer(modifier = Modifier.height(14.dp))
+
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
             // Direction Selector (Long vs Short Big Split)
@@ -567,7 +513,7 @@ fun LogTradeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Execution Pricing",
+                            text = "Execution Pricing (Optional)",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -601,7 +547,7 @@ fun LogTradeScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "Entry Level",
+                                    text = "Entry Level (Optional)",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -640,7 +586,7 @@ fun LogTradeScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "Stop Loss (SL)",
+                                    text = "Stop Loss (SL) • Optional",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                     color = CrimsonLossBright
                                 )
@@ -688,7 +634,7 @@ fun LogTradeScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "Take Profit (TP)",
+                                    text = "Take Profit (TP) • Optional",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                     color = EmeraldProfit
                                 )
@@ -787,6 +733,33 @@ fun LogTradeScreen(
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = "Win Rate % (Optional)",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        BasicTextField(
+                            value = winRateText,
+                            onValueChange = { if (it.length <= 5) winRateText = it },
+                            textStyle = TextStyle(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            cursorBrush = SolidColor(ElectricCyan),
+                            modifier = Modifier.padding(vertical = 4.dp).testTag("input_win_rate")
+                        )
+                    }
 
                     // Real-Time Analytical HUD Banner
                     Row(
@@ -1384,17 +1357,18 @@ fun LogTradeScreen(
                         viewModel.saveNewTrade(
                             pair = selectedPair,
                             direction = direction,
-                            entryPrice = entry,
-                            stopLoss = sl,
-                            takeProfit = tp,
+                            entryPrice = entryPriceText.toDoubleOrNull() ?: 0.0,
+                            stopLoss = stopLossText.toDoubleOrNull() ?: 0.0,
+                            takeProfit = takeProfitText.toDoubleOrNull() ?: 0.0,
                             positionSizeLots = positionLots,
                             setupStrategy = selectedStrategy,
                             executionThesis = thesisText,
                             psychologyNotes = selectedPsychologyFactors.joinToString(", "),
                             visibility = visibility,
-                            status = status,
+                            status = TradeStatus.OPEN,
                             selectedTags = selectedTags.toList(),
                             chartImageUri = selectedImageUri?.toString(),
+                            winRatePercent = winRateText.toDoubleOrNull(),
                             onSuccess = {
                                 isSaving = false
                                 onBack()

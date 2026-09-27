@@ -520,6 +520,21 @@ fun TradeDetailScreen(
                                 Text("SL HIT", fontWeight = FontWeight.Bold)
                             }
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = { viewModel.updateTradeStatus(trade, TradeStatus.BREAKEVEN) },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("BREAKEVEN", fontWeight = FontWeight.Bold) }
+                            Button(
+                                onClick = { viewModel.updateTradeStatus(trade, TradeStatus.CANCELLED) },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("CANCELLED", fontWeight = FontWeight.Bold) }
+                        }
                     }
                 }
 

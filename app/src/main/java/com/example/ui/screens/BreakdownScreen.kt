@@ -27,6 +27,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +45,12 @@ import com.example.ui.theme.EmeraldProfit
 
 @Composable
 fun BreakdownScreen(viewModel: FxViewModel) {
+    val trades by viewModel.trades.collectAsStateWithLifecycle()
+    val closedTrades = trades.filter { it.status != com.example.model.TradeStatus.OPEN && it.status != com.example.model.TradeStatus.CANCELLED }
+    val wins = closedTrades.count { it.status == com.example.model.TradeStatus.WINNER }
+    val losses = closedTrades.count { it.status == com.example.model.TradeStatus.STOPPED }
+    val winRate = if (closedTrades.isEmpty()) 0 else (wins * 100 / closedTrades.size)
+    val totalR = trades.sumOf { it.rMultiple }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -101,7 +109,7 @@ fun BreakdownScreen(viewModel: FxViewModel) {
 
                     // Win / Loss Progress Bar
                     Text(
-                        text = "WIN / LOSS DISTRIBUTION (68.4% Win Rate)",
+                            text = "WIN / LOSS DISTRIBUTION ($winRate% Win Rate)",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
@@ -119,7 +127,7 @@ fun BreakdownScreen(viewModel: FxViewModel) {
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.684f)
+                                .fillMaxWidth((winRate / 100f).coerceIn(0.01f, 1f))
                                 .height(10.dp)
                                 .background(EmeraldProfit)
                         )
@@ -131,7 +139,7 @@ fun BreakdownScreen(viewModel: FxViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "38 Wins (+63.2R)",
+                            text = "$wins Wins (${String.format("%+.1f", totalR.coerceAtLeast(0.0))}R)",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp
@@ -139,7 +147,7 @@ fun BreakdownScreen(viewModel: FxViewModel) {
                             color = EmeraldProfit
                         )
                         Text(
-                            text = "17 Losses (-14.3R)",
+                            text = "$losses Losses (${String.format("%+.1f", totalR.coerceAtMost(0.0))}R)",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp
