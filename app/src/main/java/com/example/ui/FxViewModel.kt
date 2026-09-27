@@ -1,6 +1,10 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
+import android.net.Uri
+import android.util.Base64
+import java.security.MessageDigest
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AppDatabase
@@ -33,6 +37,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     private val firestore: FirebaseFirestore by lazy { 
         FirebaseFirestore.getInstance("ai-studio-fxjournal-86f1108b-a538-4c26-b119-4b6d64fa097f")
     }
+    private val securityPrefs = application.getSharedPreferences("fx_journal_security", Context.MODE_PRIVATE)
 
     val trades: StateFlow<List<Trade>>
 
@@ -50,19 +55,26 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                     firestore.collection("users").document(firebaseUser.uid).get()
                         .addOnSuccessListener { document ->
                             if (document != null && document.exists()) {
-                                val name = document.getString("name") ?: firebaseUser.displayName ?: "Trader"
-                                val handle = document.getString("handle") ?: "@anonymous"
+                                val name = document.getString("name")?.takeIf { it.isNotBlank() }
+                                    ?: firebaseUser.displayName?.takeIf { it.isNotBlank() }
+                                    ?: firebaseUser.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
+                                    ?: "Trader"
+                                val handle = document.getString("handle")?.takeIf { it.isNotBlank() }
+                                    ?: "@${name.replace(" ", "").lowercase()}"
                                 _currentUser.value = FxUser(
                                     uid = firebaseUser.uid,
                                     email = firebaseUser.email ?: "",
                                     name = name,
-                                    handle = handle
+                                    handle = handle,
+                                    photoUri = document.getString("photoUri"),
+                                    publicPostAudience = document.getString("publicPostAudience") ?: "everyone"
                                 )
                             } else {
                                 _currentUser.value = FxUser(
                                     uid = firebaseUser.uid,
                                     email = firebaseUser.email ?: "",
-                                    name = firebaseUser.displayName ?: "Trader"
+                                    name = firebaseUser.displayName ?: firebaseUser.email?.substringBefore("@") ?: "Trader",
+                                    handle = "@${(firebaseUser.displayName ?: firebaseUser.email?.substringBefore("@") ?: "trader").replace(" ", "").lowercase()}"
                                 )
                             }
                         }
@@ -71,7 +83,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                             _currentUser.value = FxUser(
                                 uid = firebaseUser.uid,
                                 email = firebaseUser.email ?: "",
-                                name = firebaseUser.displayName ?: "Trader"
+                        name = firebaseUser.displayName ?: firebaseUser.email?.substringBefore("@") ?: "Trader",
+                        handle = "@${(firebaseUser.displayName ?: firebaseUser.email?.substringBefore("@") ?: "trader").replace(" ", "").lowercase()}"
                             )
                         }
                 } else {
@@ -149,8 +162,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 isLiked = false,
                 authorReply = TradeComment(
                     id = "c1_reply",
-                    authorName = "Alex Vance",
-                    authorHandle = "@QuantAlex",
+                authorName = _currentUser.value?.name ?: "Trader",
+                authorHandle = _currentUser.value?.handle ?: "@trader",
                     authorInitials = "AV",
                     isAuthorBadge = true,
                     timeAgo = "12m ago",
@@ -245,6 +258,59 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         )
     )
     val traders: StateFlow<List<TraderProfile>> = _traders.asStateFlow()
+
+    private val _appLocked = MutableStateFlow(securityPrefs.getString("pin_hash", null) != null)
+    val appLocked: StateFlow<Boolean> = _appLocked.asStateFlow()
+    val hasAppPin: Boolean get() = securityPrefs.getString("pin_hash", null) != null
+
+    fun setAppPin(pin: String, onResult: (Boolean) -> Unit = {}) {
+        if (!pin.matches(Regex("\\d{4}"))) { onResult(false); return }
+        securityPrefs.edit().putString("pin_hash", hashPin(pin)).apply()
+        onResult(true)
+        showToast("4-digit app lock enabled")
+    }
+
+    fun removeAppPin() {
+        securityPrefs.edit().remove("pin_hash").apply()
+        _appLocked.value = false
+        showToast("App lock disabled")
+    }
+
+    fun lockAppIfConfigured() { if (hasAppPin) _appLocked.value = true }
+
+    fun unlockApp(pin: String): Boolean {
+        val valid = securityPrefs.getString("pin_hash", null) == hashPin(pin)
+        if (valid) _appLocked.value = false
+        return valid
+    }
+
+    private fun hashPin(pin: String): String = Base64.encodeToString(
+        MessageDigest.getInstance("SHA-256").digest(pin.toByteArray()), Base64.NO_WRAP
+    )
+
+    fun updateProfile(name: String, handle: String, photoUri: Uri?, audience: String, onDone: () -> Unit = {}) {
+        val user = auth.currentUser ?: return
+        val cleanName = name.trim().ifBlank { "Trader" }
+        val cleanHandle = "@${handle.trim().removePrefix("@").replace(" ", "").lowercase()}"
+        val updates = hashMapOf<String, Any>(
+            "name" to cleanName,
+            "handle" to cleanHandle,
+            "publicPostAudience" to audience
+        )
+        if (photoUri != null) updates["photoUri"] = photoUri.toString()
+        firestore.collection("users").document(user.uid).update(updates)
+            .addOnSuccessListener {
+                _currentUser.value = _currentUser.value?.copy(
+                    name = cleanName,
+                    handle = cleanHandle,
+                    photoUri = photoUri?.toString() ?: _currentUser.value?.photoUri,
+                    publicPostAudience = audience
+                )
+                showToast("Profile updated")
+                onDone()
+            }
+            .addOnFailureListener { showToast("Profile update failed: ${it.message}") }
+    }
 
     fun navigateTo(screen: AppNavScreen) {
         _currentScreen.value = screen
@@ -358,6 +424,14 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         _toastMessage.value = null
     }
 
+    val draftCount: Int
+        get() = securityPrefs.getInt("draft_count", 0)
+
+    fun saveDraft() {
+        securityPrefs.edit().putInt("draft_count", draftCount + 1).apply()
+        showToast("Draft saved locally. You can continue it from Drafts.")
+    }
+
     fun toggleUpvote(trade: Trade) {
         viewModelScope.launch {
             repository.toggleUpvote(trade.id, trade.isUpvoted)
@@ -396,9 +470,9 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         if (content.isBlank()) return
         val newComment = TradeComment(
             id = "c_${System.currentTimeMillis()}",
-            authorName = "Alex Vance",
-            authorHandle = "@QuantAlex",
-            authorInitials = "AV",
+            authorName = _currentUser.value?.name ?: "Trader",
+            authorHandle = _currentUser.value?.handle ?: "@trader",
+            authorInitials = (_currentUser.value?.name ?: "Trader").split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""),
             isAuthorBadge = true,
             timeAgo = "Just now",
             content = content.trim(),
@@ -420,7 +494,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateTradeStatus(trade: Trade, newStatus: TradeStatus) {
         viewModelScope.launch {
-            val rMultiple = if (newStatus == TradeStatus.OPEN) {
+            val rMultiple = if (newStatus == TradeStatus.OPEN || newStatus == TradeStatus.BREAKEVEN || newStatus == TradeStatus.CANCELLED) {
                 0.0
             } else if (trade.direction == TradeDirection.LONG) {
                 val risk = trade.entryPrice - trade.stopLoss
@@ -452,9 +526,9 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     fun saveNewTrade(
         pair: String,
         direction: TradeDirection,
-        entryPrice: Double,
-        stopLoss: Double,
-        takeProfit: Double,
+        entryPrice: Double = 0.0,
+        stopLoss: Double = 0.0,
+        takeProfit: Double = 0.0,
         positionSizeLots: Double,
         setupStrategy: String,
         executionThesis: String,
@@ -463,6 +537,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         status: TradeStatus,
         selectedTags: List<String>,
         chartImageUri: String?,
+        winRatePercent: Double? = null,
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
@@ -503,11 +578,13 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 riskPercent = 1.0,
                 maxRiskDollars = maxRisk,
                 visibility = visibility,
+                publicPostAudience = if (visibility == TradeVisibility.PUBLIC) (_currentUser.value?.publicPostAudience ?: "everyone") else "everyone",
+                winRatePercent = winRatePercent,
                 status = status,
                 timestamp = System.currentTimeMillis(),
                 timeAgo = "Just now",
-                authorName = "Alex Vance",
-                authorHandle = "@QuantAlex",
+                authorName = _currentUser.value?.name ?: "Trader",
+                authorHandle = _currentUser.value?.handle ?: "@trader",
                 authorTier = com.example.model.TraderTier.PROP,
                 isAuthorVerified = true,
                 executionThesis = executionThesis.ifBlank { "Clean liquidity sweep into order block." },
