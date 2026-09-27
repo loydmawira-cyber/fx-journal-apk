@@ -1,0 +1,37 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Rounded Background Badge -->
+    <path
+        android:fillColor="#181C24"
+        android:pathData="M16,0 L84,0 A16,16 0 0 1 100,16 L100,84 A16,16 0 0 1 84,100 L16,100 A16,16 0 0 1 0,84 L0,16 A16,16 0 0 1 16,0 Z" />
+    
+    <!-- Outer Glow / Subtle Border -->
+    <path
+        android:strokeColor="#262A33"
+        android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M16,1 L84,1 A15,15 0 0 1 99,16 L99,84 A15,15 0 0 1 84,99 L16,99 A15,15 0 0 1 1,84 L1,16 A15,15 0 0 1 16,1 Z" />
+
+    <!-- Letter 'F' in Electric Cyan -->
+    <path
+        android:fillColor="#4CD7F6"
+        android:pathData="M20,24 L48,24 L48,34 L32,34 L32,46 L45,46 L45,56 L32,56 L32,76 L20,76 Z" />
+
+    <!-- Letter 'X' in Electric Cyan & Emerald -->
+    <!-- Diagonal 1: Cyan -->
+    <path
+        android:fillColor="#4CD7F6"
+        android:pathData="M52,24 L63,24 L82,76 L71,76 Z" />
+    <!-- Diagonal 2: Emerald Green crossing with precision cut -->
+    <path
+        android:fillColor="#4EDEA3"
+        android:pathData="M78,24 L68,24 L50,76 L60,76 Z" />
+
+    <!-- Glowing Accent Pulse Dot -->
+    <path
+        android:fillColor="#4EDEA3"
+        android:pathData="M84,20 A4,4 0 1 1 84,28 A4,4 0 1 1 84,20" />
+</vector>

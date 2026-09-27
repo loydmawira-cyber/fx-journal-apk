@@ -1,0 +1,6 @@
+{
+  "name": "FX Journal",
+  "description": "Precision trading journal & social execution feed with quantitative telemetry, chart markups, and discipline tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
