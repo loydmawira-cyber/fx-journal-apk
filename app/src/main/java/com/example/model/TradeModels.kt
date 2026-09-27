@@ -9,7 +9,7 @@ enum class TradeVisibility {
 }
 
 enum class TradeStatus {
-    OPEN, WINNER, STOPPED
+    OPEN, WINNER, STOPPED, BREAKEVEN, CANCELLED
 }
 
 enum class TraderTier(val label: String) {
@@ -51,6 +51,8 @@ data class Trade(
     val riskPercent: Double = 1.0,
     val maxRiskDollars: Double = 1000.0,
     val visibility: TradeVisibility = TradeVisibility.PUBLIC,
+    val publicPostAudience: String = "everyone",
+    val winRatePercent: Double? = null,
     val status: TradeStatus = TradeStatus.WINNER,
     val timestamp: Long = System.currentTimeMillis(),
     val timeAgo: String = "Just now",
@@ -98,5 +100,7 @@ data class FxUser(
     val email: String,
     val name: String,
     val handle: String = "@anonymous",
-    val tier: TraderTier = TraderTier.VERIFIED
+    val tier: TraderTier = TraderTier.VERIFIED,
+    val photoUri: String? = null,
+    val publicPostAudience: String = "everyone"
 )
