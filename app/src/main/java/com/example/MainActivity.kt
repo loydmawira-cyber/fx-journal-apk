@@ -15,11 +15,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -48,6 +52,7 @@ import com.example.ui.components.FxBottomBar
 import com.example.ui.components.FxHeader
 import com.example.ui.components.ThemeSelectorModal
 import com.example.ui.screens.BreakdownScreen
+import com.example.ui.screens.AppLockScreen
 import com.example.ui.screens.FeedScreen
 import com.example.ui.screens.ForgotPasswordScreen
 import com.example.ui.screens.JournalScreen
@@ -62,7 +67,11 @@ import com.example.ui.theme.EmeraldProfit
 import com.example.ui.theme.FXJournalTheme
 import kotlinx.coroutines.delay
 
+private val MaxContentWidth = 640.dp
+
 class MainActivity : ComponentActivity() {
+    private lateinit var appViewModel: FxViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
@@ -73,12 +82,18 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val viewModel: FxViewModel = viewModel()
+            appViewModel = viewModel
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 
             FXJournalTheme(themeMode = themeMode) {
                 FXJournalApp(viewModel = viewModel)
             }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (::appViewModel.isInitialized) appViewModel.lockAppIfConfigured()
     }
 }
 
@@ -91,6 +106,7 @@ fun FXJournalApp(viewModel: FxViewModel) {
     val showCreateLogSheet by viewModel.showCreateLogSheet.collectAsStateWithLifecycle()
     val showThemeModal by viewModel.showThemeModal.collectAsStateWithLifecycle()
     val toastMessage by viewModel.toastMessage.collectAsStateWithLifecycle()
+    val appLocked by viewModel.appLocked.collectAsStateWithLifecycle()
 
     // Authentication Redirect Logic
     LaunchedEffect(currentUser) {
@@ -163,8 +179,23 @@ fun FXJournalApp(viewModel: FxViewModel) {
                        currentScreen == AppNavScreen.SETTINGS ||
                        currentScreen == AppNavScreen.FORGOT_PASSWORD
 
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .safeDrawingPadding(),
+            contentAlignment = Alignment.TopCenter
+        ) {
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .widthIn(max = MaxContentWidth)
+            .fillMaxWidth()
+            .fillMaxHeight(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             if (currentScreen != AppNavScreen.LOGIN && currentScreen != AppNavScreen.SIGNUP) {
                 FxHeader(
@@ -187,7 +218,8 @@ fun FXJournalApp(viewModel: FxViewModel) {
                     },
                     onProfileClick = {
                         viewModel.navigateTo(AppNavScreen.SETTINGS)
-                    }
+                    },
+                    profileName = currentUser?.name ?: "Trader"
                 )
             }
         },
@@ -330,6 +362,7 @@ fun FXJournalApp(viewModel: FxViewModel) {
             }
         }
     }
+        }
 
     // Theme Selector Modal Sheet
     if (showThemeModal) {
@@ -361,5 +394,9 @@ fun FXJournalApp(viewModel: FxViewModel) {
                 viewModel.showToast("MT5 / cTrader Auto-Sync: 3 new executions detected")
             }
         )
+    }
+    if (appLocked) {
+        AppLockScreen(onUnlock = { pin -> viewModel.unlockApp(pin) })
+    }
     }
 }
