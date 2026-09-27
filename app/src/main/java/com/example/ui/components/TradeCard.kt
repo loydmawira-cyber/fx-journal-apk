@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Icon
@@ -76,6 +78,7 @@ fun TradeCard(
         TradeStatus.OPEN -> ElectricCyan
         TradeStatus.WINNER -> EmeraldProfit
         TradeStatus.STOPPED -> CrimsonLossBright
+        TradeStatus.BREAKEVEN, TradeStatus.CANCELLED -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Column(
@@ -236,33 +239,6 @@ fun TradeCard(
                     }
                 }
 
-                if (trade.rMultiple < 0) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MenuBook,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(11.dp)
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text(
-                            text = "DISCIPLINE LOG",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
                 IconButton(
                     onClick = { /* menu action */ },
                     modifier = Modifier.size(28.dp)
@@ -371,7 +347,7 @@ fun TradeCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = String.format("%.5f", trade.entryPrice).trimEnd('0').trimEnd('.'),
+                    text = if (trade.entryPrice == 0.0) "Not provided" else String.format("%.5f", trade.entryPrice).trimEnd('0').trimEnd('.'),
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontFamily = FontFamily.Monospace,
@@ -391,7 +367,7 @@ fun TradeCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = String.format("%.5f", if (trade.rMultiple < 0) trade.stopLoss else trade.takeProfit).trimEnd('0').trimEnd('.'),
+                    text = if ((if (trade.rMultiple < 0) trade.stopLoss else trade.takeProfit) == 0.0) "Not provided" else String.format("%.5f", if (trade.rMultiple < 0) trade.stopLoss else trade.takeProfit).trimEnd('0').trimEnd('.'),
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontFamily = FontFamily.Monospace,
@@ -535,21 +511,13 @@ fun TradeCard(
                         .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                         .padding(10.dp),
                     verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.VerifiedUser,
-                        contentDescription = null,
-                        tint = EmeraldProfit,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .padding(top = 1.dp)
-                    )
+                    ) {
+                    Icon(imageVector = Icons.Default.MenuBook, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(16.dp).padding(top = 1.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Psychology Review: ${trade.psychologyNote}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column {
+                        Text("Discipline review", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = ElectricCyan)
+                        Text("Psychology Review: ${trade.psychologyNote}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp), color = MaterialTheme.colorScheme.onSurface)
+                    }
                 }
             } else {
                 Row {
@@ -599,7 +567,7 @@ fun TradeCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowUpward,
+                        imageVector = Icons.Default.ThumbUp,
                         contentDescription = "Upvote",
                         tint = if (trade.isUpvoted) EmeraldProfit else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
@@ -630,7 +598,7 @@ fun TradeCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowDownward,
+                        imageVector = Icons.Default.ThumbDown,
                         contentDescription = "Downvote",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)

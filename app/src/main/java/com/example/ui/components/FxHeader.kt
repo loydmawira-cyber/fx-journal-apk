@@ -56,7 +56,8 @@ fun FxHeader(
     themeMode: ThemeMode = ThemeMode.AMOLED,
     onThemeClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    profileName: String = "Trader"
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -237,7 +238,7 @@ fun FxHeader(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "AV",
+                text = profileName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase().ifBlank { "TR" },
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
