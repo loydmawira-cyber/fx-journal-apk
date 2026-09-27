@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "374002081962",
+    "project_id": "fx-journal-94ffb",
+    "storage_bucket": "fx-journal-94ffb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:374002081962:android:a349b58d9196447d57f0d3",
+        "android_client_info": {
+          "package_name": "com.aistudio.fxjournal.qtrdxz"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7SuVX6EGgCcA6-sGs62O1jK1y2CcPzHY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
