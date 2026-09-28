@@ -66,7 +66,7 @@ fun FeedScreen(
     viewModel: FxViewModel,
     onTradeClick: (Trade) -> Unit
 ) {
-    val trades by viewModel.trades.collectAsStateWithLifecycle()
+    val trades by viewModel.feedTrades.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val feedTab by viewModel.feedTab.collectAsStateWithLifecycle()
     val pairFilter by viewModel.feedPairFilter.collectAsStateWithLifecycle()
