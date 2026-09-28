@@ -132,12 +132,6 @@ fun FxHeader(
                 ),
                 color = ElectricCyan
             )
-            Text(
-                text = if (subtitle.isNullOrBlank()) title else "$title • ${subtitle.uppercase()}",
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 10.sp, letterSpacing = 0.6.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
         }
 
         // Live Pill Indicator
