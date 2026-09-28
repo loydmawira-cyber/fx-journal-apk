@@ -30,7 +30,8 @@ data class TradeComment(
     val content: String,
     val likesCount: Int = 0,
     val isLiked: Boolean = false,
-    val authorReply: TradeComment? = null
+    val authorReply: TradeComment? = null,
+    val replies: List<TradeComment> = emptyList()
 )
 
 data class Trade(
