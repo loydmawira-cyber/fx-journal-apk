@@ -33,6 +33,9 @@ interface TradeDao {
     @Query("UPDATE trades SET upvotes = upvotes + :delta, isUpvoted = :isUpvoted WHERE id = :id")
     suspend fun updateUpvote(id: Long, delta: Int, isUpvoted: Boolean)
 
+    @Query("UPDATE trades SET downvotes = downvotes + :delta, isDownvoted = :isDownvoted WHERE id = :id")
+    suspend fun updateDownvote(id: Long, delta: Int, isDownvoted: Boolean)
+
     @Query("UPDATE trades SET isBookmarked = :isBookmarked WHERE id = :id")
     suspend fun updateBookmark(id: Long, isBookmarked: Boolean)
 

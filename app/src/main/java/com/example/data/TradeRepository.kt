@@ -40,6 +40,11 @@ class TradeRepository(private val tradeDao: TradeDao) {
         tradeDao.updateUpvote(tradeId, delta, !currentUpvoted)
     }
 
+    suspend fun toggleDownvote(tradeId: Long, currentDownvoted: Boolean) {
+        val delta = if (currentDownvoted) -1 else 1
+        tradeDao.updateDownvote(tradeId, delta, !currentDownvoted)
+    }
+
     suspend fun toggleBookmark(tradeId: Long, currentBookmarked: Boolean) {
         tradeDao.updateBookmark(tradeId, !currentBookmarked)
     }
