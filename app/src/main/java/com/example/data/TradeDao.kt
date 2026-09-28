@@ -27,6 +27,9 @@ interface TradeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(trades: List<TradeEntity>)
 
+    @Query("DELETE FROM trades")
+    suspend fun deleteAll()
+
     @Update
     suspend fun updateTrade(trade: TradeEntity)
 
