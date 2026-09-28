@@ -8,6 +8,7 @@ import java.security.MessageDigest
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AppDatabase
+import com.example.data.TradeEntity
 import com.example.data.TradeRepository
 import com.example.model.Trade
 import com.example.model.TradeComment
@@ -16,6 +17,7 @@ import com.example.model.TradeStatus
 import com.example.model.TradeVisibility
 import com.example.model.TraderProfile
 import com.example.model.FxUser
+import com.example.model.AppNotification
 import com.example.ui.theme.ThemeMode
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -40,6 +42,16 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     }
     private val securityPrefs = application.getSharedPreferences("fx_journal_security", Context.MODE_PRIVATE)
 
+    private fun userRoot() = auth.currentUser?.let { firestore.collection("users").document(it.uid) }
+    private fun persistTradeToCloud(trade: Trade) {
+        userRoot()?.collection("trades")?.document(trade.id.toString())
+            ?.set(TradeEntity.fromDomain(trade), SetOptions.merge())
+    }
+    private fun persistCommentToCloud(tradeId: Long, comment: TradeComment) {
+        userRoot()?.collection("trades")?.document(tradeId.toString())?.collection("comments")?.document(comment.id)
+            ?.set(comment, SetOptions.merge())
+    }
+
     val trades: StateFlow<List<Trade>>
 
     private val _currentUser = MutableStateFlow<FxUser?>(null)
@@ -57,18 +69,20 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                         .addOnSuccessListener { document ->
                             if (document != null && document.exists()) {
                                 val name = document.getString("name")?.takeIf { it.isNotBlank() }
+                                    ?: securityPrefs.getString("profile_name", null)
                                     ?: firebaseUser.displayName?.takeIf { it.isNotBlank() }
                                     ?: firebaseUser.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
                                     ?: "Trader"
                                 val handle = document.getString("handle")?.takeIf { it.isNotBlank() }
+                                    ?: securityPrefs.getString("profile_handle", null)
                                     ?: "@${name.replace(" ", "").lowercase()}"
                                 _currentUser.value = FxUser(
                                     uid = firebaseUser.uid,
                                     email = firebaseUser.email ?: "",
                                     name = name,
                                     handle = handle,
-                                    photoUri = document.getString("photoUri"),
-                                    publicPostAudience = document.getString("publicPostAudience") ?: "everyone"
+                                    photoUri = document.getString("photoUri") ?: securityPrefs.getString("profile_photo", null),
+                                    publicPostAudience = document.getString("publicPostAudience") ?: securityPrefs.getString("profile_audience", "everyone") ?: "everyone"
                                 )
                             } else {
                                 _currentUser.value = FxUser(
@@ -104,6 +118,35 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+        auth.currentUser?.uid?.let { loadCloudTrades(it) }
+        auth.currentUser?.uid?.let { loadNotifications(it) }
+        auth.currentUser?.uid?.let { loadNotificationPreferences(it) }
+    }
+
+    private fun loadCloudTrades(uid: String) {
+        firestore.collection("users").document(uid).collection("trades").get()
+            .addOnSuccessListener { snapshot ->
+                viewModelScope.launch {
+                    snapshot.documents.mapNotNull { it.toObject(TradeEntity::class.java) }
+                        .forEach { repository.insertTrade(it.toDomain()) }
+                }
+            }
+    }
+
+    private fun loadNotifications(uid: String) {
+        firestore.collection("users").document(uid).collection("notifications")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50).get()
+            .addOnSuccessListener { snapshot -> _notifications.value = snapshot.documents.mapNotNull { it.toObject(AppNotification::class.java) } }
+    }
+
+    private fun loadNotificationPreferences(uid: String) {
+        firestore.collection("users").document(uid).collection("preferences").document("notifications").get()
+            .addOnSuccessListener { document ->
+                val values = _notificationPreferences.value.toMutableMap()
+                notificationKeys.forEach { key -> document.getBoolean(key)?.let { values[key] = it; securityPrefs.edit().putBoolean("notify_$key", it).apply() } }
+                _notificationPreferences.value = values
+            }
     }
 
     // Navigation State
@@ -126,6 +169,12 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _showNotifications = MutableStateFlow(false)
     val showNotifications: StateFlow<Boolean> = _showNotifications.asStateFlow()
+    private val notificationKeys = listOf("followingPosts", "likes", "comments", "newFollowers")
+    private val _notificationPreferences = MutableStateFlow(notificationKeys.associateWith { key -> securityPrefs.getBoolean("notify_$key", true) })
+    val notificationPreferences: StateFlow<Map<String, Boolean>> = _notificationPreferences.asStateFlow()
+    private val _notifications = MutableStateFlow<List<AppNotification>>(emptyList())
+    val notifications: StateFlow<List<AppNotification>> = _notifications.asStateFlow()
+    val unreadNotificationCount: Int get() = _notifications.value.count { !it.read }
 
     // Feed Filters
     private val _feedTab = MutableStateFlow("public") // "public" or "following"
@@ -293,9 +342,25 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     fun updateProfile(name: String, handle: String, photoUri: Uri?, audience: String, onDone: () -> Unit = {}) {
-        val user = auth.currentUser ?: return
         val cleanName = name.trim().ifBlank { "Trader" }
         val cleanHandle = "@${handle.trim().removePrefix("@").replace(" ", "").lowercase()}"
+        val localUser = _currentUser.value?.copy(
+            name = cleanName,
+            handle = cleanHandle,
+            photoUri = photoUri?.toString() ?: _currentUser.value?.photoUri,
+            publicPostAudience = audience
+        )
+        if (localUser != null) _currentUser.value = localUser
+        securityPrefs.edit()
+            .putString("profile_name", cleanName)
+            .putString("profile_handle", cleanHandle)
+            .putString("profile_audience", audience)
+            .putString("profile_photo", photoUri?.toString() ?: _currentUser.value?.photoUri)
+            .apply()
+        onDone()
+        showToast("Profile updated")
+
+        val user = auth.currentUser ?: return
         val updates = hashMapOf<String, Any>(
             "name" to cleanName,
             "handle" to cleanHandle,
@@ -303,17 +368,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         )
         if (photoUri != null) updates["photoUri"] = photoUri.toString()
         firestore.collection("users").document(user.uid).set(updates, SetOptions.merge())
-            .addOnSuccessListener {
-                _currentUser.value = _currentUser.value?.copy(
-                    name = cleanName,
-                    handle = cleanHandle,
-                    photoUri = photoUri?.toString() ?: _currentUser.value?.photoUri,
-                    publicPostAudience = audience
-                )
-                showToast("Profile updated")
-                onDone()
-            }
-            .addOnFailureListener { showToast("Profile update failed: ${it.message}") }
+            .addOnFailureListener { showToast("Saved on this device; cloud sync will retry later") }
     }
 
     fun navigateTo(screen: AppNavScreen) {
@@ -324,6 +379,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     fun login(email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         auth.signInWithEmailAndPassword(email, password)
             .addOnSuccessListener {
+                auth.currentUser?.uid?.let { loadCloudTrades(it) }
                 showToast("Welcome back!")
                 onSuccess()
             }
@@ -377,6 +433,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     fun openTradeDetail(trade: Trade) {
         _selectedTrade.value = trade
         _recentTradeIds.value = (listOf(trade.id) + _recentTradeIds.value.filterNot { it == trade.id }).take(10)
+        userRoot()?.collection("recentViews")?.document(trade.id.toString())?.set(mapOf("tradeId" to trade.id, "viewedAt" to System.currentTimeMillis()), SetOptions.merge())
         _tradeComments.value = commentsByTrade[trade.id] ?: if (trade.id == 1L) _tradeComments.value else emptyList()
         _currentScreen.value = AppNavScreen.TRADE_DETAIL
     }
@@ -400,6 +457,25 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleNotifications(show: Boolean) {
         _showNotifications.value = show
+    }
+
+    fun setNotificationPreference(key: String, enabled: Boolean) {
+        if (key !in notificationKeys) return
+        _notificationPreferences.value = _notificationPreferences.value.toMutableMap().apply { put(key, enabled) }
+        securityPrefs.edit().putBoolean("notify_$key", enabled).apply()
+        userRoot()?.collection("preferences")?.document("notifications")?.set(_notificationPreferences.value, SetOptions.merge())
+    }
+
+    fun addNotification(type: String, title: String, body: String) {
+        if (_notificationPreferences.value[type] != true) return
+        val notification = AppNotification("n_${System.currentTimeMillis()}", type, title, body, System.currentTimeMillis(), false)
+        _notifications.value = (listOf(notification) + _notifications.value).take(50)
+        userRoot()?.collection("notifications")?.document(notification.id)?.set(notification, SetOptions.merge())
+    }
+
+    fun markAllNotificationsRead() {
+        _notifications.value = _notifications.value.map { it.copy(read = true) }
+        _notifications.value.forEach { notification -> userRoot()?.collection("notifications")?.document(notification.id)?.set(notification, SetOptions.merge()) }
     }
 
     fun setFeedTab(tab: String) {
@@ -435,12 +511,15 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveDraft() {
         securityPrefs.edit().putInt("draft_count", draftCount + 1).apply()
+        userRoot()?.collection("drafts")?.document("draft_${System.currentTimeMillis()}")?.set(mapOf("createdAt" to System.currentTimeMillis(), "count" to draftCount + 1), SetOptions.merge())
         showToast("Draft saved locally. You can continue it from Drafts.")
     }
 
     fun toggleUpvote(trade: Trade) {
         viewModelScope.launch {
             repository.toggleUpvote(trade.id, trade.isUpvoted)
+            persistTradeToCloud(trade.copy(upvotes = trade.upvotes + if (trade.isUpvoted) -1 else 1, isUpvoted = !trade.isUpvoted))
+            if (!trade.isUpvoted && trade.authorHandle == _currentUser.value?.handle) addNotification("likes", "Someone liked your post", "Your ${trade.pair} setup received a like.")
             // also update selectedTrade if viewing detail
             if (_selectedTrade.value?.id == trade.id) {
                 val delta = if (trade.isUpvoted) -1 else 1
@@ -455,6 +534,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleBookmark(trade: Trade) {
         viewModelScope.launch {
             repository.toggleBookmark(trade.id, trade.isBookmarked)
+            persistTradeToCloud(trade.copy(isBookmarked = !trade.isBookmarked))
             if (_selectedTrade.value?.id == trade.id) {
                 _selectedTrade.value = trade.copy(isBookmarked = !trade.isBookmarked)
             }
@@ -465,6 +545,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleDownvote(trade: Trade) {
         viewModelScope.launch {
             repository.toggleDownvote(trade.id, trade.isDownvoted)
+            persistTradeToCloud(trade.copy(downvotes = trade.downvotes + if (trade.isDownvoted) -1 else 1, isDownvoted = !trade.isDownvoted))
             if (_selectedTrade.value?.id == trade.id) {
                 val delta = if (trade.isDownvoted) -1 else 1
                 _selectedTrade.value = trade.copy(
@@ -479,6 +560,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         _traders.value = _traders.value.map {
             if (it.id == traderId) {
                 val newFollowing = !it.isFollowing
+                userRoot()?.collection("following")?.document(it.id)?.set(mapOf("traderId" to it.id, "handle" to it.handle, "isFollowing" to newFollowing), SetOptions.merge())
                 showToast(if (newFollowing) "Following ${it.handle}" else "Unfollowed ${it.handle}")
                 it.copy(isFollowing = newFollowing)
             } else it
@@ -501,6 +583,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         val updated = listOf(newComment) + _tradeComments.value
         _tradeComments.value = updated
         commentsByTrade[tradeId] = updated
+        persistCommentToCloud(tradeId, newComment)
+        trades.value.firstOrNull { it.id == tradeId }?.takeIf { it.authorHandle == _currentUser.value?.handle }?.let { addNotification("comments", "New comment on your post", "Someone commented on your ${it.pair} setup.") }
         showToast("Comment posted!")
     }
 
@@ -512,6 +596,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             } else c
         }
         commentsByTrade[tradeId] = _tradeComments.value
+        _tradeComments.value.firstOrNull { it.id == commentId }?.let { persistCommentToCloud(tradeId, it) }
     }
 
     fun addCommentReply(tradeId: Long, commentId: String, content: String) {
@@ -528,6 +613,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         val updated = _tradeComments.value.map { if (it.id == commentId) it.copy(replies = it.replies + reply) else it }
         _tradeComments.value = updated
         commentsByTrade[tradeId] = updated
+        persistCommentToCloud(tradeId, reply)
         showToast("Reply posted")
     }
 
@@ -539,14 +625,27 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             .putString("saved_folder_$tradeId", folder.ifBlank { "General" })
             .putString("saved_note_$tradeId", note)
             .apply()
+        userRoot()?.collection("saved")?.document(tradeId.toString())?.set(mapOf("tradeId" to tradeId, "folder" to folder.ifBlank { "General" }, "note" to note), SetOptions.merge())
         showToast("Saved post updated")
     }
 
     fun syncUserData() {
         val user = auth.currentUser ?: run { showToast("Sign in to sync your data"); return }
         val bookmarkedIds = trades.value.filter { it.isBookmarked }.map { it.id }
-        val payload = hashMapOf<String, Any>("bookmarkedTradeIds" to bookmarkedIds, "recentTradeIds" to _recentTradeIds.value)
-        firestore.collection("users").document(user.uid).set(payload, SetOptions.merge())
+        val root = firestore.collection("users").document(user.uid)
+        val payload = hashMapOf<String, Any>(
+            "bookmarkedTradeIds" to bookmarkedIds,
+            "recentTradeIds" to _recentTradeIds.value,
+            "draftCount" to draftCount,
+            "themeMode" to _themeMode.value.name,
+            "feedTab" to _feedTab.value,
+            "journalTab" to _journalTab.value,
+            "syncedAt" to System.currentTimeMillis()
+        )
+        trades.value.forEach { persistTradeToCloud(it) }
+        _traders.value.forEach { trader -> root.collection("following").document(trader.id).set(mapOf("traderId" to trader.id, "handle" to trader.handle, "isFollowing" to trader.isFollowing), SetOptions.merge()) }
+        commentsByTrade.forEach { (tradeId, comments) -> comments.forEach { persistCommentToCloud(tradeId, it) } }
+        root.set(payload, SetOptions.merge())
             .addOnSuccessListener { showToast("Journal, bookmarks and profile synced") }
             .addOnFailureListener { showToast("Sync failed: ${it.message}") }
     }
@@ -577,6 +676,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 durationText = if (newStatus == TradeStatus.OPEN) "Running" else "Closed"
             )
             repository.updateTrade(updatedTrade)
+            persistTradeToCloud(updatedTrade)
             _selectedTrade.value = updatedTrade
             showToast("Trade status updated to ${newStatus.name}")
         }
@@ -658,6 +758,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             repository.insertTrade(trade)
+            persistTradeToCloud(trade)
             showToast("Trade successfully logged to ${if (visibility == TradeVisibility.PUBLIC) "Public Feed & Journal" else "Private Journal"}!")
             onSuccess()
         }
