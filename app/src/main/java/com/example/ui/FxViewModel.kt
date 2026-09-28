@@ -19,6 +19,7 @@ import com.example.model.FxUser
 import com.example.ui.theme.ThemeMode
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -186,6 +187,9 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         )
     )
     val tradeComments: StateFlow<List<TradeComment>> = _tradeComments.asStateFlow()
+    private val commentsByTrade = mutableMapOf<Long, List<TradeComment>>()
+    private val _recentTradeIds = MutableStateFlow<List<Long>>(emptyList())
+    val recentTradeIds: StateFlow<List<Long>> = _recentTradeIds.asStateFlow()
 
     // Traders Community List
     private val _traders = MutableStateFlow<List<TraderProfile>>(
@@ -298,7 +302,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             "publicPostAudience" to audience
         )
         if (photoUri != null) updates["photoUri"] = photoUri.toString()
-        firestore.collection("users").document(user.uid).update(updates)
+        firestore.collection("users").document(user.uid).set(updates, SetOptions.merge())
             .addOnSuccessListener {
                 _currentUser.value = _currentUser.value?.copy(
                     name = cleanName,
@@ -372,6 +376,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openTradeDetail(trade: Trade) {
         _selectedTrade.value = trade
+        _recentTradeIds.value = (listOf(trade.id) + _recentTradeIds.value.filterNot { it == trade.id }).take(10)
+        _tradeComments.value = commentsByTrade[trade.id] ?: if (trade.id == 1L) _tradeComments.value else emptyList()
         _currentScreen.value = AppNavScreen.TRADE_DETAIL
     }
 
@@ -456,6 +462,19 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun toggleDownvote(trade: Trade) {
+        viewModelScope.launch {
+            repository.toggleDownvote(trade.id, trade.isDownvoted)
+            if (_selectedTrade.value?.id == trade.id) {
+                val delta = if (trade.isDownvoted) -1 else 1
+                _selectedTrade.value = trade.copy(
+                    downvotes = trade.downvotes + delta,
+                    isDownvoted = !trade.isDownvoted
+                )
+            }
+        }
+    }
+
     fun toggleFollowTrader(traderId: String) {
         _traders.value = _traders.value.map {
             if (it.id == traderId) {
@@ -466,7 +485,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addComment(content: String) {
+    fun addComment(tradeId: Long, content: String) {
         if (content.isBlank()) return
         val newComment = TradeComment(
             id = "c_${System.currentTimeMillis()}",
@@ -479,17 +498,57 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             likesCount = 0,
             isLiked = false
         )
-        _tradeComments.value = listOf(newComment) + _tradeComments.value
+        val updated = listOf(newComment) + _tradeComments.value
+        _tradeComments.value = updated
+        commentsByTrade[tradeId] = updated
         showToast("Comment posted!")
     }
 
-    fun toggleCommentLike(commentId: String) {
+    fun toggleCommentLike(tradeId: Long, commentId: String) {
         _tradeComments.value = _tradeComments.value.map { c ->
             if (c.id == commentId) {
                 val liked = !c.isLiked
                 c.copy(isLiked = liked, likesCount = if (liked) c.likesCount + 1 else c.likesCount - 1)
             } else c
         }
+        commentsByTrade[tradeId] = _tradeComments.value
+    }
+
+    fun addCommentReply(tradeId: Long, commentId: String, content: String) {
+        if (content.isBlank()) return
+        val reply = TradeComment(
+            id = "reply_${System.currentTimeMillis()}",
+            authorName = _currentUser.value?.name ?: "Trader",
+            authorHandle = _currentUser.value?.handle ?: "@trader",
+            authorInitials = (_currentUser.value?.name ?: "Trader").split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""),
+            isAuthorBadge = true,
+            timeAgo = "Just now",
+            content = content.trim()
+        )
+        val updated = _tradeComments.value.map { if (it.id == commentId) it.copy(replies = it.replies + reply) else it }
+        _tradeComments.value = updated
+        commentsByTrade[tradeId] = updated
+        showToast("Reply posted")
+    }
+
+    fun savedFolder(tradeId: Long): String = securityPrefs.getString("saved_folder_$tradeId", "General") ?: "General"
+    fun savedNote(tradeId: Long): String = securityPrefs.getString("saved_note_$tradeId", "") ?: ""
+
+    fun saveSavedMetadata(tradeId: Long, folder: String, note: String) {
+        securityPrefs.edit()
+            .putString("saved_folder_$tradeId", folder.ifBlank { "General" })
+            .putString("saved_note_$tradeId", note)
+            .apply()
+        showToast("Saved post updated")
+    }
+
+    fun syncUserData() {
+        val user = auth.currentUser ?: run { showToast("Sign in to sync your data"); return }
+        val bookmarkedIds = trades.value.filter { it.isBookmarked }.map { it.id }
+        val payload = hashMapOf<String, Any>("bookmarkedTradeIds" to bookmarkedIds, "recentTradeIds" to _recentTradeIds.value)
+        firestore.collection("users").document(user.uid).set(payload, SetOptions.merge())
+            .addOnSuccessListener { showToast("Journal, bookmarks and profile synced") }
+            .addOnFailureListener { showToast("Sync failed: ${it.message}") }
     }
 
     fun updateTradeStatus(trade: Trade, newStatus: TradeStatus) {
