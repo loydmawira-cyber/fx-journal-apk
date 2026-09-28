@@ -86,7 +86,7 @@ fun FeedScreen(
             trade.authorHandle == user?.handle ||
             trade.authorHandle in followingHandles
         val matchesTab = if (feedTab == "following") {
-            trade.authorHandle in listOf("@QuantAlex", "@SatoshiScalper", "@ElenaGold")
+            trade.authorHandle in followingHandles || trade.authorHandle == user?.handle
         } else true
 
         val matchesPair = if (pairFilter == "All Pairs") true else trade.pair.contains(pairFilter, ignoreCase = true)

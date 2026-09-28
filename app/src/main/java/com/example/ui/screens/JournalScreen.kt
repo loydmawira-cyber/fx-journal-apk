@@ -96,7 +96,7 @@ fun JournalScreen(
     var editingSaved by remember { mutableStateOf<Trade?>(null) }
     var shareTrade by remember { mutableStateOf<Trade?>(null) }
 
-    val userTrades = trades.filter { it.authorHandle == (user?.handle ?: "@QuantAlex") }
+    val userTrades = trades.filter { it.authorHandle == user?.handle }
     val recentTrades = recentIds.mapNotNull { id -> trades.firstOrNull { it.id == id } }.take(3)
 
     val filteredTrades = userTrades.filter { trade ->
@@ -303,7 +303,7 @@ fun JournalScreen(
         if (journalTab == "calendar") {
             item {
                 TradeCalendar(
-                    trades = trades.filter { it.authorHandle == "@QuantAlex" },
+                    trades = trades.filter { it.authorHandle == user?.handle },
                     onDateSelected = { date, dayTrades ->
                         selectedDate = date
                         dailyTrades = dayTrades

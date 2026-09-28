@@ -266,7 +266,7 @@ fun TradeDetailScreen(
                     Button(
                         onClick = {
                             isFollowing = !isFollowing
-                            viewModel.showToast(if (isFollowing) "Following Alex Vance" else "Unfollowed")
+                            viewModel.showToast(if (isFollowing) "Following ${trade.authorName}" else "Unfollowed")
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isFollowing) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -379,13 +379,20 @@ fun TradeDetailScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )
-                        } else {
+                        } else if (trade.chartDrawableRes != null) {
                             Image(
-                                painter = painterResource(id = trade.chartDrawableRes ?: R.drawable.img_eurusd_chart),
+                                painter = painterResource(id = trade.chartDrawableRes),
                                 contentDescription = "Trade Chart",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No chart image", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
 
                         // Ambient HUD Expand Button
@@ -499,7 +506,7 @@ fun TradeDetailScreen(
                     }
 
                     // Manual Outcome Update (for User's Open Trades)
-                    if (trade.status == TradeStatus.OPEN && trade.authorHandle == "@QuantAlex") {
+                    if (trade.status == TradeStatus.OPEN && trade.authorHandle == viewModel.currentUser.value?.handle) {
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),

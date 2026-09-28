@@ -63,7 +63,7 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
             }
         }
         item {
-            val mine = trades.filter { it.authorHandle == (user?.handle ?: "@QuantAlex") }
+            val mine = trades.filter { it.authorHandle == user?.handle }
             val wins = mine.count { it.rMultiple > 0 }
             SettingsGroup("Profile statistics") {
                 SettingsItem(Icons.Default.Analytics, "Performance", "${mine.size} posts • $wins wins • ${if (mine.isEmpty()) 0 else wins * 100 / mine.size}% win rate") { viewModel.showToast("Profile statistics updated from your journal") }
