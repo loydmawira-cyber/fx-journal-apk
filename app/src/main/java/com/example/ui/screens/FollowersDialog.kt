@@ -43,62 +43,22 @@ import com.example.ui.theme.ElectricCyan
 
 private data class PersonRow(val name: String, val handle: String)
 
-/** "12 Followers · 5 Following" bar. Tap it to see the full lists. */
+/** Followers / Following lists dialog. Opens on the tab you tapped. */
 @Composable
-fun FollowStatsRow(viewModel: FxViewModel, horizontalPadding: Dp = 16.dp) {
+fun FollowListDialog(viewModel: FxViewModel, startOnFollowers: Boolean, onDismiss: () -> Unit) {
     val followers by viewModel.followers.collectAsStateWithLifecycle()
     val following by viewModel.following.collectAsStateWithLifecycle()
-    var showDialog by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = horizontalPadding, vertical = 6.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .clickable { showDialog = true }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Group, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "${followers.size} Followers",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "   •   ",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.outline
-            )
-            Text(
-                text = "${following.size} Following",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Text(
-            text = "View",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = ElectricCyan
-        )
-    }
-
-    if (showDialog) {
-        FollowersDialog(
-            followers = followers.map { PersonRow(it.followerName, it.followerHandle) },
-            following = following.map { PersonRow(it.traderName, it.traderHandle) },
-            onDismiss = { showDialog = false }
-        )
-    }
+    FollowersDialog(
+        followers = followers.map { PersonRow(it.followerName, it.followerHandle) },
+        following = following.map { PersonRow(it.traderName, it.traderHandle) },
+        startOnFollowers = startOnFollowers,
+        onDismiss = onDismiss
+    )
 }
 
 @Composable
-private fun FollowersDialog(followers: List<PersonRow>, following: List<PersonRow>, onDismiss: () -> Unit) {
-    var showFollowers by remember { mutableStateOf(true) }
+private fun FollowersDialog(followers: List<PersonRow>, following: List<PersonRow>, startOnFollowers: Boolean, onDismiss: () -> Unit) {
+    var showFollowers by remember { mutableStateOf(startOnFollowers) }
     val list = if (showFollowers) followers else following
 
     Dialog(onDismissRequest = onDismiss) {
