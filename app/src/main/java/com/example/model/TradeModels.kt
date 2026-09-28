@@ -105,3 +105,12 @@ data class FxUser(
     val photoUri: String? = null,
     val publicPostAudience: String = "everyone"
 )
+
+data class AppNotification(
+    val id: String = "",
+    val type: String = "general",
+    val title: String = "Notification",
+    val body: String = "",
+    val timestamp: Long = 0L,
+    val read: Boolean = false
+)
