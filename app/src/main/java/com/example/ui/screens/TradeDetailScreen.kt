@@ -88,7 +88,13 @@ fun TradeDetailScreen(
     onBack: () -> Unit
 ) {
     val comments by viewModel.tradeComments.collectAsStateWithLifecycle()
-    var isFollowing by remember { mutableStateOf(false) }
+    val tradersList by viewModel.traders.collectAsStateWithLifecycle()
+    val myFollowers by viewModel.followers.collectAsStateWithLifecycle()
+    val me by viewModel.currentUser.collectAsStateWithLifecycle()
+    val isOwnPost = trade.authorHandle == me?.handle
+    val authorProfile = tradersList.firstOrNull { it.handle == trade.authorHandle }
+    val isFollowing = authorProfile?.isFollowing == true
+    val followerText = if (isOwnPost) myFollowers.size.toString() else (authorProfile?.followers ?: "0")
     var isBookmarked by remember { mutableStateOf(trade.isBookmarked) }
     var isLiked by remember { mutableStateOf(false) }
     var likeCount by remember { mutableIntStateOf(384) }
@@ -255,7 +261,7 @@ fun TradeDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "14.2k followers",
+                                    text = "$followerText followers",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.outline
                                 )
@@ -263,11 +269,8 @@ fun TradeDetailScreen(
                         }
                     }
 
-                    Button(
-                        onClick = {
-                            isFollowing = !isFollowing
-                            viewModel.showToast(if (isFollowing) "Following ${trade.authorName}" else "Unfollowed")
-                        },
+                    if (!isOwnPost && authorProfile != null) Button(
+                        onClick = { viewModel.toggleFollowTrader(authorProfile.id) },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isFollowing) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh,
                             contentColor = if (isFollowing) MaterialTheme.colorScheme.onSurface else ElectricCyan
