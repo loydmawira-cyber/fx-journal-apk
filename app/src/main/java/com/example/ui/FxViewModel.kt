@@ -38,6 +38,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+data class FollowDoc(
+    val followerUid: String,
+    val traderUid: String,
+    val followerName: String,
+    val followerHandle: String,
+    val traderName: String,
+    val traderHandle: String
+)
+
 data class VoteDoc(val tradeDocId: String, val voterUid: String, val value: Int)
 
 data class CloudComment(
@@ -103,6 +112,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     @Volatile private var savedDocIds: Map<Long, String> = emptyMap()
     private val _privateCommentDocs = MutableStateFlow<List<CloudComment>>(emptyList())
     private val _follows = MutableStateFlow<List<Pair<String, String>>>(emptyList()) // follower -> trader
+    private val _followDocs = MutableStateFlow<List<FollowDoc>>(emptyList())
     private var savedListener: ListenerRegistration? = null
     private var privateDiscussionListener: ListenerRegistration? = null
     private var followsListener: ListenerRegistration? = null
@@ -249,6 +259,16 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentUser = MutableStateFlow<FxUser?>(null)
     val currentUser: StateFlow<FxUser?> = _currentUser.asStateFlow()
 
+    // People who follow me / people I follow
+    val followers: StateFlow<List<FollowDoc>> = combine(_followDocs, _currentUser) { docs, _ ->
+        val me = auth.currentUser?.uid
+        docs.filter { it.traderUid == me }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val following: StateFlow<List<FollowDoc>> = combine(_followDocs, _currentUser) { docs, _ ->
+        val me = auth.currentUser?.uid
+        docs.filter { it.followerUid == me }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         // Defensive Firebase check
         try {
@@ -316,6 +336,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                     _savedOthers.value = emptyList(); savedDocIds = emptyMap()
                     _privateCommentDocs.value = emptyList()
                     _follows.value = emptyList()
+                    _followDocs.value = emptyList()
                     traderSource = emptyList()
                     _traders.value = emptyList()
                 }
@@ -475,11 +496,21 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         followsListener?.remove()
         followsListener = firestore.collection("follows").addSnapshotListener { snapshot, error ->
             if (error != null) { android.util.Log.e("FxViewModel", "Follows failed", error); return@addSnapshotListener }
-            val pairs = snapshot?.documents?.mapNotNull { d ->
+            val docs = snapshot?.documents?.mapNotNull { d ->
                 val f = d.getString("followerUid") ?: return@mapNotNull null
                 val t = d.getString("traderUid") ?: return@mapNotNull null
-                f to t
+                val known = { uid: String -> traderSource.firstOrNull { it.second == uid }?.first }
+                FollowDoc(
+                    followerUid = f,
+                    traderUid = t,
+                    followerName = d.getString("followerName") ?: known(f)?.authorName ?: "Trader",
+                    followerHandle = d.getString("followerHandle") ?: known(f)?.authorHandle ?: "@trader",
+                    traderName = d.getString("traderName") ?: known(t)?.authorName ?: "Trader",
+                    traderHandle = d.getString("traderHandle") ?: known(t)?.authorHandle ?: "@trader"
+                )
             } ?: emptyList()
+            _followDocs.value = docs
+            val pairs = docs.map { it.followerUid to it.traderUid }
             _follows.value = pairs
             val me = auth.currentUser?.uid
             followedTraderIds = pairs.filter { it.first == me }.map { it.second }.toSet()
@@ -923,7 +954,13 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 userRoot()?.collection("following")?.document(it.id)?.set(mapOf("traderId" to it.id, "handle" to it.handle, "isFollowing" to newFollowing), SetOptions.merge())
                 auth.currentUser?.uid?.let { me ->
                     val followRef = firestore.collection("follows").document("${me}_${it.id}")
-                    if (newFollowing) followRef.set(mapOf("followerUid" to me, "traderUid" to it.id, "timestamp" to System.currentTimeMillis()))
+                    if (newFollowing) followRef.set(mapOf(
+                        "followerUid" to me, "traderUid" to it.id,
+                        "followerName" to (_currentUser.value?.name ?: "Trader"),
+                        "followerHandle" to (_currentUser.value?.handle ?: "@trader"),
+                        "traderName" to it.name, "traderHandle" to it.handle,
+                        "timestamp" to System.currentTimeMillis()
+                    ))
                     else followRef.delete()
                 }
                 if (newFollowing) notifyUser(it.id, "newFollowers", "New follower", "${_currentUser.value?.handle ?: "Someone"} started following you.")
