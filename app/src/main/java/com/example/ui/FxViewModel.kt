@@ -216,18 +216,21 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun parseComment(d: DocumentSnapshot): CloudComment? = CloudComment(
-        id = d.id,
-        tradeDocId = d.getString("tradeDocId") ?: return null,
-        authorUid = d.getString("authorUid") ?: "",
-        authorName = d.getString("authorName") ?: "Trader",
-        authorHandle = d.getString("authorHandle") ?: "@trader",
-        authorInitials = d.getString("authorInitials") ?: "T",
-        content = d.getString("content") ?: "",
-        timestamp = d.getLong("timestamp") ?: 0L,
-        parentId = d.getString("parentId") ?: "",
-        likedBy = (d.get("likedBy") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-    )
+    private fun parseComment(d: DocumentSnapshot): CloudComment? {
+        val tradeDocId = d.getString("tradeDocId") ?: return null
+        return CloudComment(
+            id = d.id,
+            tradeDocId = tradeDocId,
+            authorUid = d.getString("authorUid") ?: "",
+            authorName = d.getString("authorName") ?: "Trader",
+            authorHandle = d.getString("authorHandle") ?: "@trader",
+            authorInitials = d.getString("authorInitials") ?: "T",
+            content = d.getString("content") ?: "",
+            timestamp = d.getLong("timestamp") ?: 0L,
+            parentId = d.getString("parentId") ?: "",
+            likedBy = (d.get("likedBy") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+        )
+    }
 
     private fun notifyUser(targetUid: String, type: String, title: String, body: String) {
         val id = "n_${System.currentTimeMillis()}_${(0..9999).random()}"
