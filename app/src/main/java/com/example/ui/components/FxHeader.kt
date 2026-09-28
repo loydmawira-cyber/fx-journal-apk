@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +57,7 @@ fun FxHeader(
     themeMode: ThemeMode = ThemeMode.AMOLED,
     onThemeClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
+    onLogClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     profileName: String = "Trader"
 ) {
@@ -73,9 +75,9 @@ fun FxHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(58.dp)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-            .padding(horizontal = 16.dp),
+            .height(70.dp)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (showBack) {
@@ -119,18 +121,24 @@ fun FxHeader(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // App Branding Titles
+        // App Branding and current screen
         Column(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium.copy(
+                text = "FX JOURNAL",
+                style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    letterSpacing = (-0.2).sp
+                    fontSize = 10.sp,
+                    letterSpacing = 1.6.sp
                 ),
-                color = MaterialTheme.colorScheme.onSurface
+                color = ElectricCyan
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = (-0.2).sp),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
             )
             if (subtitle != null) {
                 Text(
@@ -144,6 +152,23 @@ fun FxHeader(
                 )
             }
         }
+
+        // Quick Log action
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(ElectricCyan.copy(alpha = 0.14f))
+                .border(1.dp, ElectricCyan.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                .clickable(onClick = onLogClick)
+                .padding(horizontal = 8.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Log trade", tint = ElectricCyan, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(3.dp))
+            Text("LOG", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp), color = ElectricCyan)
+        }
+
+        Spacer(modifier = Modifier.width(5.dp))
 
         // Live Pill Indicator
         Row(

@@ -72,7 +72,7 @@ fun TradeCard(
     onDownvoteClick: () -> Unit,
     onCommentClick: () -> Unit,
     onBookmarkClick: () -> Unit,
-    onShareClick: () -> Unit
+    onShareClick: (Trade) -> Unit
 ) {
     val status = trade.status
     val outcomeColor = when(status) {
@@ -667,7 +667,7 @@ fun TradeCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                        .clickable { onShareClick() }
+                        .clickable { onShareClick(trade) }
                         .padding(6.dp),
                     contentAlignment = Alignment.Center
                 ) {
