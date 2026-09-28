@@ -69,6 +69,7 @@ fun TradeCard(
     trade: Trade,
     onClick: () -> Unit,
     onUpvoteClick: () -> Unit,
+    onDownvoteClick: () -> Unit,
     onCommentClick: () -> Unit,
     onBookmarkClick: () -> Unit,
     onShareClick: () -> Unit
@@ -593,14 +594,14 @@ fun TradeCard(
 
                 Row(
                     modifier = Modifier
-                        .clickable { /* downvote */ }
+                        .clickable { onDownvoteClick() }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.ThumbDown,
                         contentDescription = "Downvote",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = if (trade.isDownvoted) CrimsonLossBright else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -608,9 +609,9 @@ fun TradeCard(
                         text = "${trade.downvotes}",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp
+                        fontSize = 12.sp
                         ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (trade.isDownvoted) CrimsonLossBright else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
