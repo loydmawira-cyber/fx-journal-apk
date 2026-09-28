@@ -27,10 +27,10 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // No signingConfig set — produces an unsigned release AAB/APK for now.
+      // No signingConfig set â€” produces an unsigned release AAB/APK for now.
       // Add a signingConfig here later when you're ready to sign for release.
     }
-    // debug build type uses AGP's default auto-generated debug signing config —
+    // debug build type uses AGP's default auto-generated debug signing config â€”
     // no keystore file needed, works out of the box on any machine/CI runner.
   }
   compileOptions {
