@@ -58,6 +58,7 @@ import com.example.ui.screens.ForgotPasswordScreen
 import com.example.ui.screens.JournalScreen
 import com.example.ui.screens.LogTradeScreen
 import com.example.ui.screens.LoginScreen
+import com.example.ui.screens.NotificationCenter
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SignupScreen
 import com.example.ui.screens.TradeDetailScreen
@@ -107,6 +108,8 @@ fun FXJournalApp(viewModel: FxViewModel) {
     val showThemeModal by viewModel.showThemeModal.collectAsStateWithLifecycle()
     val toastMessage by viewModel.toastMessage.collectAsStateWithLifecycle()
     val appLocked by viewModel.appLocked.collectAsStateWithLifecycle()
+    val showNotifications by viewModel.showNotifications.collectAsStateWithLifecycle()
+    val notifications by viewModel.notifications.collectAsStateWithLifecycle()
 
     // Authentication Redirect Logic
     LaunchedEffect(currentUser) {
@@ -213,9 +216,7 @@ fun FXJournalApp(viewModel: FxViewModel) {
                     },
                     themeMode = themeMode,
                     onThemeClick = { viewModel.toggleThemeModal(true) },
-                    onNotificationsClick = {
-                        viewModel.showToast("Alert: London Session Open • High impact news in 15m")
-                    },
+                    onNotificationsClick = { viewModel.toggleNotifications(true) },
                     onProfileClick = {
                         viewModel.navigateTo(AppNavScreen.SETTINGS)
                     },
@@ -308,6 +309,10 @@ fun FXJournalApp(viewModel: FxViewModel) {
                         onLogout = { viewModel.navigateTo(AppNavScreen.LOGIN) }
                     )
                 }
+            }
+
+            if (showNotifications) {
+                NotificationCenter(notifications, viewModel) { viewModel.toggleNotifications(false) }
             }
 
             // Interactive Toast / Notification Snackbar
