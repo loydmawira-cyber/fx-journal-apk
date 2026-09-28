@@ -2,10 +2,12 @@ package com.example.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.squareup.moshi.JsonClass
 import com.example.model.Trade
 import com.example.model.TradeDirection
 import com.example.model.TradeVisibility
 
+@JsonClass(generateAdapter = true)
 @Entity(tableName = "trades")
 data class TradeEntity(
     @PrimaryKey(autoGenerate = true)
