@@ -14,6 +14,8 @@ class TradeRepository(private val tradeDao: TradeDao) {
 
     suspend fun insertTrade(trade: Trade): Long = tradeDao.insertTrade(TradeEntity.fromDomain(trade))
 
+    suspend fun clearAll() = tradeDao.deleteAll()
+
     suspend fun updateTrade(trade: Trade) = tradeDao.updateTrade(TradeEntity.fromDomain(trade))
 
     suspend fun toggleUpvote(tradeId: Long, currentUpvoted: Boolean) {
