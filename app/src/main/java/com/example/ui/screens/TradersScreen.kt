@@ -97,6 +97,12 @@ fun TradersScreen(viewModel: FxViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+        // My followers / following (tap to see the lists)
+        item {
+            FollowStatsRow(viewModel, horizontalPadding = 0.dp)
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
         // Traders List
         items(traders, key = { it.id }) { trader ->
             TraderCardItem(
