@@ -33,6 +33,8 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
     var showProfileEditor by remember { mutableStateOf(false) }
     var showPinEditor by remember { mutableStateOf(false) }
     var showPrivacyEditor by remember { mutableStateOf(false) }
+    var showNotificationEditor by remember { mutableStateOf(false) }
+    val notificationPreferences by viewModel.notificationPreferences.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("settings_screen_container"),
@@ -57,7 +59,7 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
         item {
             SettingsGroup("Preferences") {
                 SettingsItem(Icons.Default.Palette, "Theme Settings", themeMode.name.lowercase().replaceFirstChar { it.uppercase() }) { viewModel.toggleThemeModal(true) }
-                SettingsItem(Icons.Default.Notifications, "Notifications") { viewModel.showToast("Notification settings coming soon") }
+                SettingsItem(Icons.Default.Notifications, "Notifications", "Choose which activity appears in your notification bell") { showNotificationEditor = true }
             }
         }
         item {
@@ -85,6 +87,28 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
     if (showProfileEditor) ProfileEditor(user?.name ?: "", user?.handle ?: "", user?.photoUri, user?.publicPostAudience ?: "everyone", viewModel) { showProfileEditor = false }
     if (showPinEditor) PinEditor(viewModel) { showPinEditor = false }
     if (showPrivacyEditor) PrivacyEditor(user?.publicPostAudience ?: "everyone", viewModel) { showPrivacyEditor = false }
+    if (showNotificationEditor) NotificationPreferencesDialog(notificationPreferences, viewModel) { showNotificationEditor = false }
+}
+
+@Composable
+private fun NotificationPreferencesDialog(preferences: Map<String, Boolean>, viewModel: FxViewModel, onClose: () -> Unit) {
+    val options = listOf(
+        "followingPosts" to "Posts from people I follow",
+        "likes" to "Likes on my posts",
+        "comments" to "Comments and replies on my posts",
+        "newFollowers" to "New followers"
+    )
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Notification preferences") },
+        text = { Column { options.forEach { (key, label) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Switch(checked = preferences[key] == true, onCheckedChange = { viewModel.setNotificationPreference(key, it) })
+            }
+        } } },
+        confirmButton = { TextButton(onClick = onClose) { Text("Done") } }
+    )
 }
 
 @Composable
