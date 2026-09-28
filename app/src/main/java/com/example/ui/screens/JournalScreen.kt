@@ -31,6 +31,9 @@ import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Tune
@@ -38,6 +41,9 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,16 +86,23 @@ fun JournalScreen(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val journalTab by viewModel.journalTab.collectAsStateWithLifecycle()
     val selectedFilter by viewModel.journalPairFilter.collectAsStateWithLifecycle()
+    val recentIds by viewModel.recentTradeIds.collectAsStateWithLifecycle()
 
     var selectedDate by remember { mutableStateOf<Date?>(null) }
     var dailyTrades by remember { mutableStateOf<List<Trade>>(emptyList()) }
+    var savedQuery by remember { mutableStateOf("") }
+    var savedFolder by remember { mutableStateOf("All folders") }
+    var sortSavedByR by remember { mutableStateOf(false) }
+    var editingSaved by remember { mutableStateOf<Trade?>(null) }
 
     val userTrades = trades.filter { it.authorHandle == (user?.handle ?: "@QuantAlex") }
+    val recentTrades = recentIds.mapNotNull { id -> trades.firstOrNull { it.id == id } }.take(3)
 
     val filteredTrades = userTrades.filter { trade ->
         val matchesVisibility = when (journalTab) {
             "private" -> trade.visibility == TradeVisibility.PRIVATE
             "public" -> trade.visibility == TradeVisibility.PUBLIC
+            "bookmarked" -> trade.isBookmarked
             else -> true
         }
 
@@ -98,8 +111,10 @@ fun JournalScreen(
                     trade.setupStrategy.contains(selectedFilter!!, ignoreCase = true)
         }
 
-        matchesVisibility && matchesFilter
-    }
+        val matchesSavedQuery = journalTab != "bookmarked" || savedQuery.isBlank() || trade.pair.contains(savedQuery, true) || trade.setupStrategy.contains(savedQuery, true) || trade.authorName.contains(savedQuery, true)
+        val matchesFolder = journalTab != "bookmarked" || savedFolder == "All folders" || viewModel.savedFolder(trade.id) == savedFolder
+        matchesVisibility && matchesFilter && matchesSavedQuery && matchesFolder
+    }.let { list -> if (journalTab == "bookmarked" && sortSavedByR) list.sortedByDescending { it.rMultiple } else list }
 
     LazyColumn(
         modifier = Modifier
@@ -420,6 +435,13 @@ fun JournalScreen(
                         modifier = Modifier.weight(1f)
                     )
                     JournalVisTab(
+                        title = "Saved (${userTrades.count { it.isBookmarked }})",
+                        icon = Icons.Default.Bookmark,
+                        isSelected = journalTab == "bookmarked",
+                        onClick = { viewModel.setJournalTab("bookmarked") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    JournalVisTab(
                         title = "Calendar",
                         icon = Icons.Default.CalendarMonth,
                         isSelected = journalTab == "calendar",
@@ -476,6 +498,24 @@ fun JournalScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                     }
                 }
+                if (journalTab == "bookmarked") {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        OutlinedTextField(savedQuery, { savedQuery = it }, modifier = Modifier.weight(1f), singleLine = true, leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(16.dp)) }, placeholder = { Text("Search saved posts") })
+                        Icon(Icons.Default.Sort, "Sort saved posts", tint = if (sortSavedByR) ElectricCyan else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp).clickable { sortSavedByR = !sortSavedByR })
+                    }
+                    Text("Folder: $savedFolder (tap to change)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 5.dp).clickable { savedFolder = when (savedFolder) { "All folders" -> "General"; "General" -> "Study later"; "Study later" -> "High R:R"; else -> "All folders" } })
+                }
+            }
+        }
+
+        if (journalTab != "bookmarked" && recentTrades.isNotEmpty()) {
+            item {
+                Text("Recently viewed", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Row(modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    recentTrades.forEach { recent ->
+                        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow).clickable { onTradeClick(recent) }.padding(10.dp)) { Text("${recent.pair} • ${recent.setupStrategy}", style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
             }
         }
 
@@ -503,14 +543,15 @@ fun JournalScreen(
         } else {
             items(filteredTrades, key = { it.id }) { trade ->
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    TradeCard(
-                        trade = trade,
-                        onClick = { onTradeClick(trade) },
-                        onUpvoteClick = { viewModel.toggleUpvote(trade) },
-                        onCommentClick = { onTradeClick(trade) },
-                        onBookmarkClick = { viewModel.toggleBookmark(trade) },
-                        onShareClick = { viewModel.showToast("Setup copied!") }
-                    )
+                    Column {
+                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { viewModel.showToast("Setup copied!") })
+                        if (journalTab == "bookmarked") {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                Text("${viewModel.savedFolder(trade.id)}${viewModel.savedNote(trade.id).let { if (it.isBlank()) "" else " • $it" }}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { editingSaved = trade }) { Text("Folder / note") }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -576,6 +617,20 @@ fun JournalScreen(
                 }
             }
         }
+    }
+    editingSaved?.let { trade ->
+        var folder by remember(trade.id) { mutableStateOf(viewModel.savedFolder(trade.id)) }
+        var note by remember(trade.id) { mutableStateOf(viewModel.savedNote(trade.id)) }
+        AlertDialog(
+            onDismissRequest = { editingSaved = null },
+            title = { Text("Saved post organization") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(folder, { folder = it }, label = { Text("Folder") }, singleLine = true)
+                OutlinedTextField(note, { note = it }, label = { Text("Private note") }, minLines = 2)
+            } },
+            confirmButton = { TextButton(onClick = { viewModel.saveSavedMetadata(trade.id, folder, note); editingSaved = null }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { editingSaved = null }) { Text("Cancel") } }
+        )
     }
 }
 

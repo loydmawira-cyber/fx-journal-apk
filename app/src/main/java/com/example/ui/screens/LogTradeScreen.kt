@@ -896,8 +896,8 @@ fun LogTradeScreen(
                             AsyncImage(
                                 model = selectedImageUri,
                                 contentDescription = "Chart evidence",
-                                modifier = Modifier.fillMaxWidth(),
-                                contentScale = ContentScale.Crop
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
                             )
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {

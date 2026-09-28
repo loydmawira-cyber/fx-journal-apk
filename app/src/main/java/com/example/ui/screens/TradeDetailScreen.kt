@@ -46,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -93,6 +94,7 @@ fun TradeDetailScreen(
     var likeCount by remember { mutableIntStateOf(384) }
     var showAdvancedSpecs by remember { mutableStateOf(false) }
     var commentText by remember { mutableStateOf("") }
+    var replyTarget by remember { mutableStateOf<String?>(null) }
     var isChartExpanded by remember { mutableStateOf(false) }
 
     val isWin = trade.rMultiple >= 0
@@ -374,15 +376,15 @@ fun TradeDetailScreen(
                             AsyncImage(
                                 model = trade.chartImageUri,
                                 contentDescription = "Trade Chart",
-                                modifier = Modifier.fillMaxWidth(),
-                                contentScale = ContentScale.Crop
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
                             )
                         } else {
                             Image(
                                 painter = painterResource(id = trade.chartDrawableRes ?: R.drawable.img_eurusd_chart),
                                 contentDescription = "Trade Chart",
-                                modifier = Modifier.fillMaxWidth(),
-                                contentScale = ContentScale.Crop
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
                             )
                         }
 
@@ -732,7 +734,8 @@ fun TradeDetailScreen(
             items(comments, key = { it.id }) { comment ->
                 DiscussionCommentCard(
                     comment = comment,
-                    onLikeClick = { viewModel.toggleCommentLike(comment.id) }
+                    onLikeClick = { viewModel.toggleCommentLike(trade.id, comment.id) },
+                    onReplyClick = { replyTarget = comment.id }
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -772,7 +775,7 @@ fun TradeDetailScreen(
                     decorationBox = { innerTextField ->
                         if (commentText.isEmpty()) {
                             Text(
-                                text = "Write a thoughtful comment...",
+                                text = if (replyTarget == null) "Write a thoughtful comment..." else "Write a reply...",
                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -799,8 +802,9 @@ fun TradeDetailScreen(
             IconButton(
                 onClick = {
                     if (commentText.isNotBlank()) {
-                        viewModel.addComment(commentText)
+                        if (replyTarget == null) viewModel.addComment(trade.id, commentText) else viewModel.addCommentReply(trade.id, replyTarget!!, commentText)
                         commentText = ""
+                        replyTarget = null
                     }
                 },
                 modifier = Modifier
@@ -895,7 +899,8 @@ private fun SpecRow(
 @Composable
 private fun DiscussionCommentCard(
     comment: TradeComment,
-    onLikeClick: () -> Unit
+    onLikeClick: () -> Unit,
+    onReplyClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1015,8 +1020,16 @@ private fun DiscussionCommentCard(
                     Text(
                         text = comment.authorReply.authorName,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        TextButton(onClick = onReplyClick) { Text("Reply", style = MaterialTheme.typography.labelSmall, color = ElectricCyan) }
+        comment.replies.forEach { reply ->
+            Row(Modifier.padding(start = 18.dp, top = 4.dp), verticalAlignment = Alignment.Top) {
+                Text(reply.authorInitials, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = ElectricCyan)
+                Spacer(Modifier.width(6.dp))
+                Text("${reply.authorName}: ${reply.content}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "• ${comment.authorReply.timeAgo}",

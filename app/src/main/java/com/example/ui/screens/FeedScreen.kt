@@ -78,6 +78,7 @@ fun FeedScreen(
     var sortByR by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     val followingHandles = traders.filter { it.isFollowing }.map { it.handle }.toSet()
+    val followingCount = traders.count { it.isFollowing }
     val filteredTrades = trades.filter { trade ->
         val audienceAllows = trade.visibility != com.example.model.TradeVisibility.PUBLIC ||
             trade.publicPostAudience == "everyone" ||
@@ -183,7 +184,7 @@ fun FeedScreen(
                                     .padding(horizontal = 6.dp, vertical = 1.dp)
                             ) {
                                 Text(
-                                    text = "3",
+                                    text = followingCount.toString(),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 10.sp
@@ -345,7 +346,7 @@ fun FeedScreen(
             } else {
                 items(filteredTrades, key = { it.id }) { trade ->
                     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { viewModel.showToast("Setup copied to clipboard!") })
+                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { viewModel.showToast("Setup copied to clipboard!") })
                     }
                 }
             }

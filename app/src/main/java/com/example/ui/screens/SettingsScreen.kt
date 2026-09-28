@@ -29,6 +29,7 @@ import com.example.ui.theme.ElectricCyan
 fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
+    val trades by viewModel.trades.collectAsStateWithLifecycle()
     var showProfileEditor by remember { mutableStateOf(false) }
     var showPinEditor by remember { mutableStateOf(false) }
     var showPrivacyEditor by remember { mutableStateOf(false) }
@@ -57,6 +58,14 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
             SettingsGroup("Preferences") {
                 SettingsItem(Icons.Default.Palette, "Theme Settings", themeMode.name.lowercase().replaceFirstChar { it.uppercase() }) { viewModel.toggleThemeModal(true) }
                 SettingsItem(Icons.Default.Notifications, "Notifications") { viewModel.showToast("Notification settings coming soon") }
+            }
+        }
+        item {
+            val mine = trades.filter { it.authorHandle == (user?.handle ?: "@QuantAlex") }
+            val wins = mine.count { it.rMultiple > 0 }
+            SettingsGroup("Profile statistics") {
+                SettingsItem(Icons.Default.Analytics, "Performance", "${mine.size} posts • $wins wins • ${if (mine.isEmpty()) 0 else wins * 100 / mine.size}% win rate") { viewModel.showToast("Profile statistics updated from your journal") }
+                SettingsItem(Icons.Default.CloudSync, "Backup and sync", "Bookmarks, profile and recently viewed posts") { viewModel.syncUserData() }
             }
         }
         item {
