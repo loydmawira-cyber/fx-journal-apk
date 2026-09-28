@@ -94,6 +94,7 @@ fun JournalScreen(
     var savedFolder by remember { mutableStateOf("All folders") }
     var sortSavedByR by remember { mutableStateOf(false) }
     var editingSaved by remember { mutableStateOf<Trade?>(null) }
+    var shareTrade by remember { mutableStateOf<Trade?>(null) }
 
     val userTrades = trades.filter { it.authorHandle == (user?.handle ?: "@QuantAlex") }
     val recentTrades = recentIds.mapNotNull { id -> trades.firstOrNull { it.id == id } }.take(3)
@@ -544,7 +545,7 @@ fun JournalScreen(
             items(filteredTrades, key = { it.id }) { trade ->
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                     Column {
-                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { viewModel.showToast("Setup copied!") })
+                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { shareTrade = it })
                         if (journalTab == "bookmarked") {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 Text("${viewModel.savedFolder(trade.id)}${viewModel.savedNote(trade.id).let { if (it.isBlank()) "" else " • $it" }}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
@@ -631,6 +632,9 @@ fun JournalScreen(
             confirmButton = { TextButton(onClick = { viewModel.saveSavedMetadata(trade.id, folder, note); editingSaved = null }) { Text("Save") } },
             dismissButton = { TextButton(onClick = { editingSaved = null }) { Text("Cancel") } }
         )
+    }
+    shareTrade?.let { trade ->
+        SharePostDialog(trade = trade, onShareToFeed = { viewModel.shareTradeToFeed(it) }, onDismiss = { shareTrade = null })
     }
 }
 

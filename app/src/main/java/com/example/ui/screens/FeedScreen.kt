@@ -76,6 +76,7 @@ fun FeedScreen(
     var showPairSearch by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var showStrategySearch by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var sortByR by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var shareTrade by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Trade?>(null) }
 
     val followingHandles = traders.filter { it.isFollowing }.map { it.handle }.toSet()
     val followingCount = traders.count { it.isFollowing }
@@ -346,7 +347,7 @@ fun FeedScreen(
             } else {
                 items(filteredTrades, key = { it.id }) { trade ->
                     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { viewModel.showToast("Setup copied to clipboard!") })
+                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { shareTrade = it })
                     }
                 }
             }
@@ -371,6 +372,9 @@ fun FeedScreen(
                 onSelect = { viewModel.setFeedStrategyFilter(it); showStrategySearch = false },
                 onDismiss = { showStrategySearch = false }
             )
+        }
+        shareTrade?.let { trade ->
+            SharePostDialog(trade = trade, onShareToFeed = { viewModel.shareTradeToFeed(it) }, onDismiss = { shareTrade = null })
         }
 
         // Tactical Floating Filter Trigger (Bottom Right Reach Zone)
