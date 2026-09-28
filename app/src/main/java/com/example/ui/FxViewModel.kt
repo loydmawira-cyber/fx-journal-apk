@@ -64,6 +64,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             auth.addAuthStateListener { firebaseAuth ->
                 val firebaseUser = firebaseAuth.currentUser
                 if (firebaseUser != null) {
+                    loadCloudTrades(firebaseUser.uid)
+                    loadFollowing(firebaseUser.uid)
                     // Fetch extra user data from Firestore
                     firestore.collection("users").document(firebaseUser.uid).get()
                         .addOnSuccessListener { document ->
@@ -111,8 +113,6 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         }
         val database = AppDatabase.getDatabase(application)
         repository = TradeRepository(database.tradeDao())
-        repository.checkAndSeedInitialData(viewModelScope)
-
         trades = repository.allTrades.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -130,6 +130,17 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                     snapshot.documents.mapNotNull { it.toObject(TradeEntity::class.java) }
                         .forEach { repository.insertTrade(it.toDomain()) }
                 }
+            }
+    }
+
+    private fun loadFollowing(uid: String) {
+        firestore.collection("users").document(uid).collection("following").get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.isEmpty) return@addOnSuccessListener
+                val followedIds = snapshot.documents.filter { it.getBoolean("isFollowing") != false }
+                    .mapNotNull { it.getString("traderId") }.toSet()
+                _traders.value = _traders.value.map { it.copy(isFollowing = it.id in followedIds) }
+                _traders.value.forEach { trader -> securityPrefs.edit().putBoolean("following_${trader.id}", trader.id in followedIds).apply() }
             }
     }
 
@@ -197,119 +208,14 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
-    // Discussion comments for trade detail
-    private val _tradeComments = MutableStateFlow<List<TradeComment>>(
-        listOf(
-            TradeComment(
-                id = "c1",
-                authorName = "Marcus K.",
-                authorHandle = "@marcus_fx",
-                authorInitials = "MK",
-                isAuthorBadge = false,
-                timeAgo = "18m ago",
-                content = "Textbook execution on the London open low sweep. Did you take partials before CPI release or hold straight to target?",
-                likesCount = 29,
-                isLiked = false,
-                authorReply = TradeComment(
-                    id = "c1_reply",
-                authorName = _currentUser.value?.name ?: "Trader",
-                authorHandle = _currentUser.value?.handle ?: "@trader",
-                    authorInitials = "AV",
-                    isAuthorBadge = true,
-                    timeAgo = "12m ago",
-                    content = "Took 50% off at +2R right at 1.1012 liquidity cluster, let the remaining runner take full TP!",
-                    likesCount = 14,
-                    isLiked = true
-                )
-            ),
-            TradeComment(
-                id = "c2",
-                authorName = "Sophia Lin",
-                authorHandle = "@sophia_trades",
-                authorInitials = "SL",
-                isAuthorBadge = false,
-                timeAgo = "45m ago",
-                content = "Patience pays off. Loved the clean risk management here—never chasing extended wicks.",
-                likesCount = 14,
-                isLiked = false
-            )
-        )
-    )
+    // Discussion comments are loaded per trade from Firestore and start empty.
+    private val _tradeComments = MutableStateFlow<List<TradeComment>>(emptyList())
     val tradeComments: StateFlow<List<TradeComment>> = _tradeComments.asStateFlow()
     private val commentsByTrade = mutableMapOf<Long, List<TradeComment>>()
     private val _recentTradeIds = MutableStateFlow<List<Long>>(emptyList())
     val recentTradeIds: StateFlow<List<Long>> = _recentTradeIds.asStateFlow()
-
-    // Traders Community List
-    private val _traders = MutableStateFlow<List<TraderProfile>>(
-        listOf(
-            TraderProfile(
-                id = "t1",
-                name = "Alex Vance",
-                handle = "@QuantAlex",
-                tier = com.example.model.TraderTier.PROP,
-                tierLabel = "Prop Firm Verified",
-                winRate = "68.4%",
-                streak = "8W 🔥",
-                netRGain = "+63.2R",
-                followers = "14.2k",
-                isVerified = true,
-                isFollowing = true
-            ),
-            TraderProfile(
-                id = "t2",
-                name = "Satoshi Scalper",
-                handle = "@SatoshiScalper",
-                tier = com.example.model.TraderTier.LIVE,
-                tierLabel = "Live Account Verified",
-                winRate = "72.1%",
-                streak = "5W 🔥",
-                netRGain = "+84.5R",
-                followers = "28.5k",
-                isVerified = true,
-                isFollowing = true
-            ),
-            TraderProfile(
-                id = "t3",
-                name = "Elena Gold",
-                handle = "@ElenaGold",
-                tier = com.example.model.TraderTier.PROP,
-                tierLabel = "Prop Firm Elite",
-                winRate = "64.0%",
-                streak = "4W",
-                netRGain = "+42.1R",
-                followers = "9.8k",
-                isVerified = true,
-                isFollowing = true
-            ),
-            TraderProfile(
-                id = "t4",
-                name = "Marcus K.",
-                handle = "@marcus_fx",
-                tier = com.example.model.TraderTier.VERIFIED,
-                tierLabel = "Professional Verified",
-                winRate = "61.5%",
-                streak = "3W",
-                netRGain = "+28.4R",
-                followers = "6.1k",
-                isVerified = true,
-                isFollowing = false
-            ),
-            TraderProfile(
-                id = "t5",
-                name = "Sophia Lin",
-                handle = "@sophia_trades",
-                tier = com.example.model.TraderTier.VERIFIED,
-                tierLabel = "Retail Verified",
-                winRate = "66.7%",
-                streak = "6W 🔥",
-                netRGain = "+35.6R",
-                followers = "11.4k",
-                isVerified = true,
-                isFollowing = false
-            )
-        )
-    )
+    // Community profiles are loaded from Firestore and start empty.
+    private val _traders = MutableStateFlow<List<TraderProfile>>(emptyList())
     val traders: StateFlow<List<TraderProfile>> = _traders.asStateFlow()
 
     private val _appLocked = MutableStateFlow(securityPrefs.getString("pin_hash", null) != null)
@@ -572,6 +478,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         _traders.value = _traders.value.map {
             if (it.id == traderId) {
                 val newFollowing = !it.isFollowing
+                securityPrefs.edit().putBoolean("following_${it.id}", newFollowing).apply()
                 userRoot()?.collection("following")?.document(it.id)?.set(mapOf("traderId" to it.id, "handle" to it.handle, "isFollowing" to newFollowing), SetOptions.merge())
                 showToast(if (newFollowing) "Following ${it.handle}" else "Unfollowed ${it.handle}")
                 it.copy(isFollowing = newFollowing)
@@ -769,8 +676,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 durationText = if (status == TradeStatus.OPEN) "Running" else "Closed"
             )
 
-            repository.insertTrade(trade)
-            persistTradeToCloud(trade)
+            val localId = repository.insertTrade(trade)
+            persistTradeToCloud(trade.copy(id = localId))
             showToast("Trade successfully logged to ${if (visibility == TradeVisibility.PUBLIC) "Public Feed & Journal" else "Private Journal"}!")
             onSuccess()
         }
