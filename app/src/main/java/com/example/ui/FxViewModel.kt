@@ -542,6 +542,18 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun shareTradeToFeed(trade: Trade) {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            showToast("Sign in to share to your feed")
+            return
+        }
+        firestore.collection("users").document(uid).collection("sharedPosts").document("share_${trade.id}_${System.currentTimeMillis()}")
+            .set(mapOf("tradeId" to trade.id, "pair" to trade.pair, "strategy" to trade.setupStrategy, "sharedAt" to System.currentTimeMillis(), "authorHandle" to trade.authorHandle), SetOptions.merge())
+            .addOnSuccessListener { showToast("Post shared to your feed") }
+            .addOnFailureListener { showToast("Could not share post") }
+    }
+
     fun toggleDownvote(trade: Trade) {
         viewModelScope.launch {
             repository.toggleDownvote(trade.id, trade.isDownvoted)
