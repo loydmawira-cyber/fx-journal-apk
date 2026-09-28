@@ -81,7 +81,9 @@ fun JournalScreen(
     viewModel: FxViewModel,
     onTradeClick: (Trade) -> Unit
 ) {
-    val trades by viewModel.trades.collectAsStateWithLifecycle()
+    val trades by viewModel.myTrades.collectAsStateWithLifecycle()
+    val savedOthers by viewModel.savedOthers.collectAsStateWithLifecycle()
+    val feedTrades by viewModel.feedTrades.collectAsStateWithLifecycle()
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val journalTab by viewModel.journalTab.collectAsStateWithLifecycle()
@@ -97,9 +99,11 @@ fun JournalScreen(
     var shareTrade by remember { mutableStateOf<Trade?>(null) }
 
     val userTrades = trades.filter { it.authorHandle == user?.handle }
-    val recentTrades = recentIds.mapNotNull { id -> trades.firstOrNull { it.id == id } }.take(3)
+    val recentTrades = recentIds.mapNotNull { id ->
+        trades.firstOrNull { it.id == id } ?: feedTrades.firstOrNull { it.id == id } ?: savedOthers.firstOrNull { it.id == id }
+    }.take(3)
 
-    val filteredTrades = userTrades.filter { trade ->
+    val filteredTrades = (if (journalTab == "bookmarked") userTrades + savedOthers else userTrades).filter { trade ->
         val matchesVisibility = when (journalTab) {
             "private" -> trade.visibility == TradeVisibility.PRIVATE
             "public" -> trade.visibility == TradeVisibility.PUBLIC
@@ -215,7 +219,7 @@ fun JournalScreen(
                         modifier = Modifier.weight(1f)
                     )
                     JournalVisTab(
-                        title = "Saved (${userTrades.count { it.isBookmarked }})",
+                        title = "Saved (${(userTrades.count { it.isBookmarked } + savedOthers.size)})",
                         icon = Icons.Default.Bookmark,
                         isSelected = journalTab == "bookmarked",
                         onClick = { viewModel.setJournalTab("bookmarked") },
