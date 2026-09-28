@@ -217,7 +217,6 @@ fun FXJournalApp(viewModel: FxViewModel) {
                     themeMode = themeMode,
                     onThemeClick = { viewModel.toggleThemeModal(true) },
                     onNotificationsClick = { viewModel.toggleNotifications(true) },
-                    onLogClick = { viewModel.toggleCreateLogSheet(true) },
                     onProfileClick = {
                         viewModel.navigateTo(AppNavScreen.SETTINGS)
                     },
