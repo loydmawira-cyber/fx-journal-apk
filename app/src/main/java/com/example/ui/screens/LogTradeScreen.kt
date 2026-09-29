@@ -57,12 +57,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -88,15 +90,22 @@ import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.EmeraldProfit
 import com.example.ui.theme.OnElectricCyan
 
+private fun <T> List<T>.mostFrequentOrNull(): T? =
+    groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LogTradeScreen(
     viewModel: FxViewModel,
     onBack: () -> Unit
 ) {
+    val trades by viewModel.trades.collectAsStateWithLifecycle()
+    val user by viewModel.currentUser.collectAsStateWithLifecycle()
     var visibility by remember { mutableStateOf(TradeVisibility.PRIVATE) }
     var direction by remember { mutableStateOf(TradeDirection.LONG) }
     var selectedPair by remember { mutableStateOf("EUR/USD") }
+    var selectedSession by remember { mutableStateOf("London / NY Overlap") }
+    var selectedTimeframe by remember { mutableStateOf("15M") }
 
     var entryPriceText by remember { mutableStateOf("") }
     var stopLossText by remember { mutableStateOf("") }
@@ -127,6 +136,40 @@ fun LogTradeScreen(
 
     var isSaving by remember { mutableStateOf(false) }
     var draftCount by remember { mutableStateOf(viewModel.draftCount) }
+    var smartDefaultsApplied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(user?.handle, trades) {
+        val handle = user?.handle ?: return@LaunchedEffect
+        if (smartDefaultsApplied) return@LaunchedEffect
+        val history = trades.filter { it.authorHandle == handle }
+        if (history.isEmpty()) return@LaunchedEffect
+
+        selectedPair = history.map { it.pair }.mostFrequentOrNull() ?: selectedPair
+        selectedStrategy = history.map { it.setupStrategy }.mostFrequentOrNull() ?: selectedStrategy
+        selectedSession = history.map { it.session }.mostFrequentOrNull() ?: selectedSession
+        selectedTimeframe = history.map { it.timeframe }.mostFrequentOrNull() ?: selectedTimeframe
+
+        val learnedTags = history.flatMap { it.tags }
+            .filter { it.isNotBlank() }
+            .groupingBy { it.lowercase() }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .take(4)
+            .map { it.key }
+        selectedTags.clear()
+        selectedTags.addAll((learnedTags + selectedPair.replace("/", "").lowercase()).distinct().take(5))
+
+        history.flatMap { it.psychologyNote?.split(",")?.map { value -> value.trim() }.orEmpty() }
+            .filter { it.isNotBlank() }
+            .mostFrequentOrNull()
+            ?.let {
+                selectedPsychologyFactors.clear()
+                selectedPsychologyFactors.add(it)
+            }
+        history.maxByOrNull { it.timestamp }?.executionThesis?.takeIf { it.isNotBlank() }?.let { thesisText = it }
+        smartDefaultsApplied = true
+    }
 
     // Computations
     val entry = entryPriceText.toDoubleOrNull() ?: 1.09680
@@ -445,7 +488,7 @@ fun LogTradeScreen(
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "London / NY Overlap",
+                                text = selectedSession,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -617,6 +660,123 @@ fun LogTradeScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Take Profit (TP)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Take Profit (TP) • Optional",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    color = EmeraldProfit
+                                )
+                                Text(
+                                    text = "+67.0 p",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = EmeraldProfit
+                                )
+                            }
+                            BasicTextField(
+                                value = takeProfitText,
+                                onValueChange = { takeProfitText = it },
+                                textStyle = TextStyle(
+                                    color = EmeraldProfit,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                cursorBrush = SolidColor(EmeraldProfit),
+                                modifier = Modifier.padding(vertical = 4.dp).testTag("input_take_profit")
+                            )
+                        }
+
+                        // Position Size
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Position Size",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "Lots",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    ),
+                                    color = ElectricCyan
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = String.format("%.2f", positionLots),
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 15.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                            .clickable {
+                                                if (positionLots > 0.1) positionLots = Math.round((positionLots - 0.1) * 100.0) / 100.0
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(text = "-", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                            .clickable {
+                                                positionLots = Math.round((positionLots + 0.1) * 100.0) / 100.0
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(text = "+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -624,40 +784,91 @@ fun LogTradeScreen(
                             .background(MaterialTheme.colorScheme.surfaceContainer)
                             .padding(10.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Take Profit (TP) • Optional",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                color = EmeraldProfit
-                            )
-                            Text(
-                                text = "+67.0 p",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                color = EmeraldProfit
-                            )
-                        }
+                        Text(
+                            text = "Win Rate % (Optional)",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         BasicTextField(
-                            value = takeProfitText,
-                            onValueChange = { takeProfitText = it },
+                            value = winRateText,
+                            onValueChange = { if (it.length <= 5) winRateText = it },
                             textStyle = TextStyle(
-                                color = EmeraldProfit,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            cursorBrush = SolidColor(EmeraldProfit),
-                            modifier = Modifier.padding(vertical = 4.dp).testTag("input_take_profit")
+                            cursorBrush = SolidColor(ElectricCyan),
+                            modifier = Modifier.padding(vertical = 4.dp).testTag("input_win_rate")
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    // Real-Time Analytical HUD Banner
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f))
+                            .padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "R:R RATIO",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "1 : $rrRatio",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 14.sp
+                                ),
+                                color = ElectricCyan
+                            )
+                        }
+
+                        Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "EST. WIN",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${if (rrRatio > 0) "+" else ""}${rrRatio}R",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 14.sp
+                                ),
+                                color = EmeraldProfit
+                            )
+                        }
+
+                        Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "EST. LOSS",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "-1.0R",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 14.sp
+                                ),
+                                color = CrimsonLossBright
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -1194,6 +1405,8 @@ fun LogTradeScreen(
                             takeProfit = takeProfitText.toDoubleOrNull() ?: 0.0,
                             positionSizeLots = positionLots,
                             setupStrategy = selectedStrategy,
+                            session = selectedSession,
+                            timeframe = selectedTimeframe,
                             executionThesis = thesisText,
                             psychologyNotes = selectedPsychologyFactors.joinToString(", "),
                             visibility = visibility,
