@@ -47,8 +47,14 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: TradeRepository
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
-    private val firestore: FirebaseFirestore by lazy { 
-        FirebaseFirestore.getInstance("ai-studio-fxjournal-86f1108b-a538-4c26-b119-4b6d64fa097f")
+    // The app's google-services.json points at Firebase project "fx-journal-94ffb", so use that
+    // project's default Firestore database. The old named "ai-studio-..." database belongs to a
+    // different project and made every read/write fail silently (empty feed, followers, data).
+    private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
+
+    private fun logCloudError(what: String, e: Exception) {
+        android.util.Log.e("FxViewModel", "Firestore $what failed", e)
+        showToast("Cloud sync problem ($what): ${e.message?.take(80) ?: "unknown"}")
     }
     private val securityPrefs = application.getSharedPreferences("fx_journal_security", Context.MODE_PRIVATE)
 
@@ -163,7 +169,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                         runCatching { doc.toObject(TradeEntity::class.java)?.toDomain() }.getOrNull()
                     }
                 }
-                .addOnFailureListener { android.util.Log.w("FxViewModel", "Cloud feed unavailable", it) }
+                .addOnFailureListener { logCloudError("feed", it) }
         } catch (e: Exception) {
             android.util.Log.w("FxViewModel", "Cloud feed failed", e)
         }
@@ -176,6 +182,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                     runCatching { doc.toObject(FollowDoc::class.java) }.getOrNull()
                 }
             }
+            .addOnFailureListener { logCloudError("followers", it) }
     }
 
     private fun loadCloudTrades(uid: String) {
@@ -186,6 +193,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                         .forEach { repository.insertTrade(it.toDomain()) }
                 }
             }
+            .addOnFailureListener { logCloudError("trades", it) }
     }
 
     private fun loadPublicTraders(currentUid: String) {
@@ -441,7 +449,23 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         _recentTradeIds.value = (listOf(trade.id) + _recentTradeIds.value.filterNot { it == trade.id }).take(10)
         userRoot()?.collection("recentViews")?.document(trade.id.toString())?.set(mapOf("tradeId" to trade.id, "viewedAt" to System.currentTimeMillis()), SetOptions.merge())
         _tradeComments.value = commentsByTrade[trade.id] ?: emptyList()
+        loadCommentsFromCloud(trade.id)
         _currentScreen.value = AppNavScreen.TRADE_DETAIL
+    }
+
+    /** Comments are saved to Firestore but were never read back, so they vanished on restart. */
+    private fun loadCommentsFromCloud(tradeId: Long) {
+        userRoot()?.collection("trades")?.document(tradeId.toString())?.collection("comments")?.get()
+            ?.addOnSuccessListener { snapshot ->
+                val cloud = snapshot.documents.mapNotNull { doc ->
+                    runCatching { doc.toObject(TradeComment::class.java) }.getOrNull()
+                }
+                if (cloud.isEmpty()) return@addOnSuccessListener
+                val local = commentsByTrade[tradeId].orEmpty()
+                val merged = (local + cloud).distinctBy { it.id }
+                commentsByTrade[tradeId] = merged
+                if (_selectedTrade.value?.id == tradeId) _tradeComments.value = merged
+            }
     }
 
     fun closeTradeDetail() {
