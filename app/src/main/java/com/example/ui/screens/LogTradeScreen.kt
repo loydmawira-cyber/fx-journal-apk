@@ -137,10 +137,11 @@ fun LogTradeScreen(
     var isSaving by remember { mutableStateOf(false) }
     var draftCount by remember { mutableStateOf(viewModel.draftCount) }
     var smartDefaultsApplied by remember { mutableStateOf(false) }
+    var userEditedForm by remember { mutableStateOf(false) }
 
     LaunchedEffect(user?.handle, trades) {
         val handle = user?.handle ?: return@LaunchedEffect
-        if (smartDefaultsApplied) return@LaunchedEffect
+        if (smartDefaultsApplied || userEditedForm) return@LaunchedEffect
         val history = trades.filter { it.authorHandle == handle }
         if (history.isEmpty()) return@LaunchedEffect
 
@@ -512,7 +513,7 @@ fun LogTradeScreen(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isSelected) ElectricCyan else MaterialTheme.colorScheme.surfaceContainerHigh)
-                                    .clickable { selectedPair = pair }
+                                    .clickable { userEditedForm = true; selectedPair = pair }
                                     .padding(horizontal = 12.dp, vertical = 7.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -1082,7 +1083,7 @@ fun LogTradeScreen(
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isSelected) ElectricCyan.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceContainerHigh)
                                     .border(1.dp, if (isSelected) ElectricCyan else Color.Transparent, RoundedCornerShape(8.dp))
-                                    .clickable { selectedStrategy = modelTag }
+                                    .clickable { userEditedForm = true; selectedStrategy = modelTag }
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -1186,6 +1187,7 @@ fun LogTradeScreen(
                                     .background(if (isSelected) EmeraldProfit.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceContainerHigh)
                                     .border(1.dp, if (isSelected) EmeraldProfit.copy(alpha = 0.6f) else Color.Transparent, RoundedCornerShape(16.dp))
                                     .clickable {
+                                        userEditedForm = true
                                         if (isSelected) selectedPsychologyFactors.remove(factor)
                                         else selectedPsychologyFactors.add(factor)
                                     }
@@ -1247,7 +1249,7 @@ fun LogTradeScreen(
 
                     BasicTextField(
                         value = thesisText,
-                        onValueChange = { thesisText = it },
+                        onValueChange = { userEditedForm = true; thesisText = it },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(80.dp)
@@ -1334,6 +1336,7 @@ fun LogTradeScreen(
                             onClick = {
                                 if (currentTagText.isNotBlank()) {
                                     val tag = currentTagText.trim().lowercase().removePrefix("#")
+                                    userEditedForm = true
                                     if (!selectedTags.contains(tag)) {
                                         selectedTags.add(tag)
                                     }
@@ -1382,7 +1385,7 @@ fun LogTradeScreen(
                                     tint = ElectricCyan,
                                     modifier = Modifier
                                         .size(12.dp)
-                                        .clickable { selectedTags.remove(tag) }
+                                        .clickable { userEditedForm = true; selectedTags.remove(tag) }
                                 )
                             }
                         }
