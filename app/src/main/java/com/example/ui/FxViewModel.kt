@@ -27,12 +27,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class AppNavScreen {
     FEED, JOURNAL, TRADERS, BREAKDOWN, TRADE_DETAIL, LOG_TRADE, LOGIN, SIGNUP, FORGOT_PASSWORD, SETTINGS
 }
+
+/** A follow relationship as stored in Firestore / shown in the followers dialog. */
+data class FollowDoc(
+    val followerName: String = "",
+    val followerHandle: String = "",
+    val traderName: String = "",
+    val traderHandle: String = ""
+)
 
 class FxViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -58,6 +67,10 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentUser = MutableStateFlow<FxUser?>(null)
     val currentUser: StateFlow<FxUser?> = _currentUser.asStateFlow()
 
+    private val _cloudFeed = MutableStateFlow<List<Trade>>(emptyList())
+    private val _followers = MutableStateFlow<List<FollowDoc>>(emptyList())
+    val followers: StateFlow<List<FollowDoc>> = _followers.asStateFlow()
+
     init {
         // Defensive Firebase check
         try {
@@ -66,6 +79,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 val firebaseUser = firebaseAuth.currentUser
                 if (firebaseUser != null) {
                     loadCloudTrades(firebaseUser.uid)
+                    loadCloudFeed()
+                    loadFollowers(firebaseUser.uid)
                     loadFollowing(firebaseUser.uid)
                     loadPublicTraders(firebaseUser.uid)
                     // Fetch extra user data from Firestore
@@ -123,6 +138,44 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         auth.currentUser?.uid?.let { loadCloudTrades(it) }
         auth.currentUser?.uid?.let { loadNotifications(it) }
         auth.currentUser?.uid?.let { loadNotificationPreferences(it) }
+    }
+
+    /** The signed-in user's own trades (local Room cache, synced from the cloud). */
+    val myTrades: StateFlow<List<Trade>> get() = trades
+
+    /** Public trades from everyone: local public trades merged with the cloud feed. */
+    val feedTrades: StateFlow<List<Trade>> = combine(trades, _cloudFeed) { local, cloud ->
+        (local.filter { it.visibility == TradeVisibility.PUBLIC } + cloud)
+            .distinctBy { it.id to it.authorHandle }
+            .sortedByDescending { it.timestamp }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Bookmarked trades that belong to other traders. */
+    val savedOthers: StateFlow<List<Trade>> = combine(feedTrades, _currentUser) { feed, user ->
+        feed.filter { it.isBookmarked && it.authorHandle != user?.handle }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private fun loadCloudFeed() {
+        try {
+            firestore.collectionGroup("trades").whereEqualTo("visibility", "PUBLIC").get()
+                .addOnSuccessListener { snapshot ->
+                    _cloudFeed.value = snapshot.documents.mapNotNull { doc ->
+                        runCatching { doc.toObject(TradeEntity::class.java)?.toDomain() }.getOrNull()
+                    }
+                }
+                .addOnFailureListener { android.util.Log.w("FxViewModel", "Cloud feed unavailable", it) }
+        } catch (e: Exception) {
+            android.util.Log.w("FxViewModel", "Cloud feed failed", e)
+        }
+    }
+
+    private fun loadFollowers(uid: String) {
+        firestore.collection("users").document(uid).collection("followers").get()
+            .addOnSuccessListener { snapshot ->
+                _followers.value = snapshot.documents.mapNotNull { doc ->
+                    runCatching { doc.toObject(FollowDoc::class.java) }.getOrNull()
+                }
+            }
     }
 
     private fun loadCloudTrades(uid: String) {
@@ -252,6 +305,18 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     // Community profiles are loaded from Firestore and start empty.
     private val _traders = MutableStateFlow<List<TraderProfile>>(emptyList())
     val traders: StateFlow<List<TraderProfile>> = _traders.asStateFlow()
+
+    /** Traders the user follows, derived from the traders list. */
+    val following: StateFlow<List<FollowDoc>> = combine(_traders, _currentUser) { traders, user ->
+        traders.filter { it.isFollowing }.map {
+            FollowDoc(
+                followerName = user?.name ?: "",
+                followerHandle = user?.handle ?: "",
+                traderName = it.name,
+                traderHandle = it.handle
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _appLocked = MutableStateFlow(securityPrefs.getString("pin_hash", null) != null)
     val appLocked: StateFlow<Boolean> = _appLocked.asStateFlow()
