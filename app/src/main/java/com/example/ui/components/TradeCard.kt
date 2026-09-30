@@ -420,7 +420,7 @@ fun TradeCard(
         }
 
         // High-Res Chart Snapshot (if available)
-        if (trade.chartImageUri != null || trade.chartDrawableRes != null) {
+        if (trade.chartImageUri != null) {
             Spacer(modifier = Modifier.height(10.dp))
             Box(
                 modifier = Modifier
@@ -431,13 +431,6 @@ fun TradeCard(
                 if (trade.chartImageUri != null) {
                     AsyncImage(
                         model = trade.chartImageUri,
-                        contentDescription = "Chart analysis",
-                        modifier = Modifier.fillMaxWidth(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else if (trade.chartDrawableRes != null) {
-                    Image(
-                        painter = painterResource(id = trade.chartDrawableRes),
                         contentDescription = "Chart analysis",
                         modifier = Modifier.fillMaxWidth(),
                         contentScale = ContentScale.Crop
