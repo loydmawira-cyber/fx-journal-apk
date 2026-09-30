@@ -770,6 +770,37 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             }
     }
 
+    /** Posts the signed-in user created have local ids >= 0; community / saved posts use negative ids. */
+    fun isMyTrade(trade: Trade) = trade.id >= 0
+
+    /** Switch one of my own posts between Public and Private (updates the phone and the cloud). */
+    fun changeTradeVisibility(trade: Trade, newVisibility: TradeVisibility) {
+        if (!isMyTrade(trade)) return
+        viewModelScope.launch {
+            val base = trades.value.firstOrNull { it.id == trade.id } ?: trade
+            if (base.visibility == newVisibility) return@launch
+            val updated = base.copy(visibility = newVisibility)
+            repository.updateTrade(updated)
+            persistTradeToCloud(updated)
+            showToast(if (newVisibility == TradeVisibility.PUBLIC) "Post is now public" else "Post is now private")
+        }
+    }
+
+    /** Permanently delete one of my own posts from the phone, my journal and the public feed. */
+    fun deleteMyTrade(trade: Trade) {
+        if (!isMyTrade(trade)) return
+        viewModelScope.launch {
+            repository.deleteTradeById(trade.id)
+            auth.currentUser?.uid?.let { uid ->
+                firestore.collection("users").document(uid).collection("trades")
+                    .document(trade.id.toString()).delete()
+                firestore.collection("publicTrades").document("${uid}_${trade.id}").delete()
+            }
+            if (_selectedTrade.value?.id == trade.id) _selectedTrade.value = null
+            showToast("Post deleted")
+        }
+    }
+
     fun openTradeDetail(trade: Trade) {
         _selectedTrade.value = trade
         _recentTradeIds.value = (listOf(trade.id) + _recentTradeIds.value.filterNot { it == trade.id }).take(10)
