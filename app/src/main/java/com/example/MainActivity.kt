@@ -35,6 +35,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +53,8 @@ import com.example.ui.FxViewModel
 import com.example.ui.components.CreateLogBottomSheet
 import com.example.ui.components.FxBottomBar
 import com.example.ui.components.FxHeader
+import com.example.ui.components.AccentPaletteSheet
+import com.example.ui.theme.AccentPalette
 import com.example.ui.components.ThemeSelectorModal
 import com.example.ui.screens.EconomicCalendarScreen
 import com.example.ui.screens.AppLockScreen
@@ -81,6 +86,7 @@ class MainActivity : ComponentActivity() {
             android.util.Log.e("MainActivity", "Firebase initialization failed", e)
         }
         enableEdgeToEdge()
+        AccentPalette.load(this)
         setContent {
             val viewModel: FxViewModel = viewModel()
             appViewModel = viewModel
@@ -104,6 +110,7 @@ fun FXJournalApp(viewModel: FxViewModel) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val selectedTrade by viewModel.selectedTrade.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    var showPalette by remember { mutableStateOf(false) }
     val showCreateLogSheet by viewModel.showCreateLogSheet.collectAsStateWithLifecycle()
     val showThemeModal by viewModel.showThemeModal.collectAsStateWithLifecycle()
     val toastMessage by viewModel.toastMessage.collectAsStateWithLifecycle()
@@ -216,6 +223,7 @@ fun FXJournalApp(viewModel: FxViewModel) {
                     },
                     themeMode = themeMode,
                     onThemeClick = { viewModel.toggleThemeModal(true) },
+                    onPaletteClick = { showPalette = true },
                     onNotificationsClick = { viewModel.toggleNotifications(true) },
                     onProfileClick = {
                         viewModel.navigateTo(AppNavScreen.SETTINGS)
@@ -368,6 +376,11 @@ fun FXJournalApp(viewModel: FxViewModel) {
         }
     }
         }
+
+    // Accent color palette sheet
+    if (showPalette) {
+        AccentPaletteSheet(onDismiss = { showPalette = false })
+    }
 
     // Theme Selector Modal Sheet
     if (showThemeModal) {
