@@ -47,10 +47,10 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: TradeRepository
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
-    // The app's google-services.json points at Firebase project "fx-journal-94ffb", so use that
-    // project's default Firestore database. The old named "ai-studio-..." database belongs to a
-    // different project and made every read/write fail silently (empty feed, followers, data).
-    private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
+    // Original database the app used before (this is where existing data lives).
+    private val firestore: FirebaseFirestore by lazy {
+        FirebaseFirestore.getInstance("ai-studio-fxjournal-86f1108b-a538-4c26-b119-4b6d64fa097f")
+    }
 
     private fun logCloudError(what: String, e: Exception) {
         android.util.Log.e("FxViewModel", "Firestore $what failed", e)
@@ -163,13 +163,14 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadCloudFeed() {
         try {
-            firestore.collectionGroup("trades").whereEqualTo("visibility", "PUBLIC").get()
+            firestore.collectionGroup("trades").get()
                 .addOnSuccessListener { snapshot ->
                     _cloudFeed.value = snapshot.documents.mapNotNull { doc ->
                         runCatching { doc.toObject(TradeEntity::class.java)?.toDomain() }.getOrNull()
-                    }
+                    }.filter { it.visibility == TradeVisibility.PUBLIC }
                 }
-                .addOnFailureListener { logCloudError("feed", it) }
+                // Feed is optional: log quietly instead of showing an error toast.
+                .addOnFailureListener { android.util.Log.w("FxViewModel", "Cloud feed unavailable", it) }
         } catch (e: Exception) {
             android.util.Log.w("FxViewModel", "Cloud feed failed", e)
         }
