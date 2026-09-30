@@ -382,13 +382,6 @@ fun TradeDetailScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )
-                        } else if (trade.chartDrawableRes != null) {
-                            Image(
-                                painter = painterResource(id = trade.chartDrawableRes),
-                                contentDescription = "Trade Chart",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
                         } else {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
