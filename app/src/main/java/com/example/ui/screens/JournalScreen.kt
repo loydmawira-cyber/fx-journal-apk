@@ -328,7 +328,7 @@ fun JournalScreen(
             items(filteredTrades, key = { it.id }) { trade ->
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                     Column {
-                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { shareTrade = it })
+                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { shareTrade = it }, isOwner = viewModel.isMyTrade(trade), onChangeVisibility = { viewModel.changeTradeVisibility(trade, it) }, onDelete = { viewModel.deleteMyTrade(trade) })
                         if (journalTab == "bookmarked") {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 Text("${viewModel.savedFolder(trade.id)}${viewModel.savedNote(trade.id).let { if (it.isBlank()) "" else " • $it" }}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))

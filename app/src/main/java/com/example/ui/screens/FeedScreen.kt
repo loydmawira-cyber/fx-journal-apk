@@ -347,7 +347,7 @@ fun FeedScreen(
             } else {
                 items(filteredTrades, key = { it.id }) { trade ->
                     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { shareTrade = it })
+                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { shareTrade = it }, isOwner = viewModel.isMyTrade(trade), onChangeVisibility = { viewModel.changeTradeVisibility(trade, it) }, onDelete = { viewModel.deleteMyTrade(trade) })
                     }
                 }
             }
