@@ -89,11 +89,20 @@ fun FXJournalTheme(
     themeMode: ThemeMode = ThemeMode.DARK_SLATE,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when (themeMode) {
+    val baseScheme = when (themeMode) {
         ThemeMode.DARK_SLATE -> DarkSlateColorScheme
         ThemeMode.AMOLED -> AmoledColorScheme
         ThemeMode.LIGHT -> LightColorScheme
     }
+    // Apply the user's chosen accent color (if any) on top of the chosen theme
+    val colorScheme = if (AccentPalette.current != null) {
+        baseScheme.copy(
+            primary = ElectricCyan,
+            onPrimary = OnElectricCyan,
+            primaryContainer = ElectricCyanContainer,
+            onPrimaryContainer = OnElectricCyanContainer
+        )
+    } else baseScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
