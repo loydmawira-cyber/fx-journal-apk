@@ -228,7 +228,8 @@ fun FXJournalApp(viewModel: FxViewModel) {
                     onProfileClick = {
                         viewModel.navigateTo(AppNavScreen.SETTINGS)
                     },
-                    profileName = currentUser?.name ?: "Trader"
+                    profileName = currentUser?.name ?: "Trader",
+                    profileHandle = currentUser?.handle
                 )
             }
         },
