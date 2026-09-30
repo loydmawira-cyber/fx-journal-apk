@@ -542,180 +542,6 @@ fun LogTradeScreen(
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // Section 2: Execution Pricing & Calculated HUD
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .padding(14.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Execution Pricing (Optional)",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Live Tick: 1.09684",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // 2x2 Clean Numerical Input Grid
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // Entry Level
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainer)
-                                .padding(10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Entry Level (Optional)",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.PinInvoke,
-                                    contentDescription = null,
-                                    tint = ElectricCyan,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                            BasicTextField(
-                                value = entryPriceText,
-                                onValueChange = { entryPriceText = it },
-                                textStyle = TextStyle(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                ),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                cursorBrush = SolidColor(ElectricCyan),
-                                modifier = Modifier.padding(vertical = 4.dp).testTag("input_entry_price")
-                            )
-                        }
-
-                        // Stop Loss (SL)
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainer)
-                                .padding(10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Stop Loss (SL) • Optional",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                    color = CrimsonLossBright
-                                )
-                                Text(
-                                    text = "-23.0 p",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = CrimsonLossBright
-                                )
-                            }
-                            BasicTextField(
-                                value = stopLossText,
-                                onValueChange = { stopLossText = it },
-                                textStyle = TextStyle(
-                                    color = CrimsonLossBright,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                ),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                cursorBrush = SolidColor(CrimsonLossBright),
-                                modifier = Modifier.padding(vertical = 4.dp).testTag("input_stop_loss")
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // Take Profit (TP)
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainer)
-                                .padding(10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Take Profit (TP) • Optional",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                    color = EmeraldProfit
-                                )
-                                Text(
-                                    text = "+67.0 p",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = EmeraldProfit
-                                )
-                            }
-                            BasicTextField(
-                                value = takeProfitText,
-                                onValueChange = { takeProfitText = it },
-                                textStyle = TextStyle(
-                                    color = EmeraldProfit,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                ),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                cursorBrush = SolidColor(EmeraldProfit),
-                                modifier = Modifier.padding(vertical = 4.dp).testTag("input_take_profit")
-                            )
-                        }
-
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
             // Section 3: Technical Evidence
             item {
                 Column(
@@ -871,6 +697,115 @@ fun LogTradeScreen(
                             Icon(imageVector = Icons.Default.Draw, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(text = "Annotate Chart", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
+            // Section: Execution Pricing (below the chart)
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .padding(14.dp)
+                ) {
+                    Text(
+                        text = "Execution Pricing (Optional)",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Entry, Stop Loss and Take Profit on one horizontal line
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Entry",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            BasicTextField(
+                                value = entryPriceText,
+                                onValueChange = { entryPriceText = it },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                cursorBrush = SolidColor(ElectricCyan),
+                                modifier = Modifier.padding(vertical = 4.dp).testTag("input_entry_price")
+                            )
+                        }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Stop Loss",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                color = CrimsonLossBright
+                            )
+                            BasicTextField(
+                                value = stopLossText,
+                                onValueChange = { stopLossText = it },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = CrimsonLossBright,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                cursorBrush = SolidColor(CrimsonLossBright),
+                                modifier = Modifier.padding(vertical = 4.dp).testTag("input_stop_loss")
+                            )
+                        }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Take Profit",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                color = EmeraldProfit
+                            )
+                            BasicTextField(
+                                value = takeProfitText,
+                                onValueChange = { takeProfitText = it },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = EmeraldProfit,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                cursorBrush = SolidColor(EmeraldProfit),
+                                modifier = Modifier.padding(vertical = 4.dp).testTag("input_take_profit")
+                            )
                         }
                     }
                 }
