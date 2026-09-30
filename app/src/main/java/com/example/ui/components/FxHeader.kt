@@ -59,7 +59,8 @@ fun FxHeader(
     onPaletteClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    profileName: String = "Trader"
+    profileName: String = "Trader",
+    profileHandle: String? = null
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -243,13 +244,14 @@ fun FxHeader(
                 .clickable { onProfileClick() },
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = profileName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase().ifBlank { "TR" },
-                style = MaterialTheme.typography.labelSmall.copy(
+            AvatarContent(
+                handle = profileHandle,
+                initials = profileName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase().ifBlank { "TR" },
+                textStyle = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 ),
-                color = ElectricCyan
+                textColor = ElectricCyan
             )
             // Online Green Pip
             Box(

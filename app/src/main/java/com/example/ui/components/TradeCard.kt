@@ -187,10 +187,11 @@ fun TradeCard(
                     contentAlignment = Alignment.Center
                 ) {
                     val initials = trade.authorName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("")
-                    Text(
-                        text = initials.ifBlank { "TR" },
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = ElectricCyan
+                    AvatarContent(
+                        handle = trade.authorHandle,
+                        initials = initials.ifBlank { "TR" },
+                        textStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        textColor = ElectricCyan
                     )
 
                     // Verified badge pip
