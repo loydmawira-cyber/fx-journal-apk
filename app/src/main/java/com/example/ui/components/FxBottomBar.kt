@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CandlestickChart
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.Group
@@ -113,13 +113,13 @@ fun FxBottomBar(
                 testTag = "bottom_tab_traders"
             )
 
-            // Tab 5: Breakdown
+            // Tab 5: Economic Calendar
             BottomNavItem(
-                icon = Icons.Default.Analytics,
-                label = "Breakdown",
+                icon = Icons.Default.CalendarMonth,
+                label = "Calendar",
                 isSelected = currentScreen == AppNavScreen.BREAKDOWN,
                 onClick = { onTabSelected(AppNavScreen.BREAKDOWN) },
-                testTag = "bottom_tab_breakdown"
+                testTag = "bottom_tab_calendar"
             )
         }
     }
