@@ -30,6 +30,7 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val trades by viewModel.trades.collectAsStateWithLifecycle()
+    val hasPin by viewModel.hasAppPinState.collectAsStateWithLifecycle()
     var showProfileEditor by remember { mutableStateOf(false) }
     var showPinEditor by remember { mutableStateOf(false) }
     var showPrivacyEditor by remember { mutableStateOf(false) }
@@ -52,7 +53,7 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
         item {
             SettingsGroup("Account") {
                 SettingsItem(Icons.Default.Person, "Edit Profile", "Name, handle and profile picture") { showProfileEditor = true }
-                SettingsItem(Icons.Default.Security, "App Lock PIN", if (viewModel.hasAppPin) "Enabled • 4 digits" else "Not configured") { showPinEditor = true }
+                SettingsItem(Icons.Default.Security, "App Lock PIN", if (hasPin) "Enabled • 4 digits" else "Not configured") { showPinEditor = true }
                 SettingsItem(Icons.Default.Visibility, "Public post visibility", if (user?.publicPostAudience == "followers") "Followers only" else "Everyone") { showPrivacyEditor = true }
             }
         }
@@ -152,17 +153,38 @@ private fun PrivacyEditor(current: String, viewModel: FxViewModel, onClose: () -
 
 @Composable
 private fun PinEditor(viewModel: FxViewModel, onClose: () -> Unit) {
+    val hasPin by viewModel.hasAppPinState.collectAsStateWithLifecycle()
     var pin by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    AlertDialog(onDismissRequest = onClose, title = { Text(if (viewModel.hasAppPin) "Change app lock PIN" else "Set app lock PIN") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("The app will ask for this PIN after it goes to the background.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedTextField(pin, { if (it.length <= 4 && it.all(Char::isDigit)) pin = it }, label = { Text("New 4-digit PIN") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(confirm, { if (it.length <= 4 && it.all(Char::isDigit)) confirm = it }, label = { Text("Confirm PIN") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(if (hasPin) "Change app lock PIN" else "Set app lock PIN") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("The app will ask for this PIN after it goes to the background.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                Text("New 4-digit PIN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                com.example.ui.components.PinInput(value = pin, onValueChange = { pin = it; error = null }, isError = error != null, autoFocus = true)
+                Spacer(Modifier.height(2.dp))
+                Text("Confirm PIN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                com.example.ui.components.PinInput(value = confirm, onValueChange = { confirm = it; error = null }, isError = error != null)
+                if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (pin.length != 4 || pin != confirm) error = "PINs must match and contain exactly 4 digits"
+                else viewModel.setAppPin(pin) { onClose() }
+            }) { Text("Save PIN") }
+        },
+        dismissButton = {
+            Row {
+                if (hasPin) TextButton(onClick = { viewModel.removeAppPin(); onClose() }) { Text("Disable") }
+                TextButton(onClick = onClose) { Text("Cancel") }
+            }
         }
-    }, confirmButton = { TextButton(onClick = { if (pin.length != 4 || pin != confirm) error = "PINs must match and contain exactly 4 digits" else viewModel.setAppPin(pin) { onClose() } }) { Text("Save PIN") } }, dismissButton = { Row { if (viewModel.hasAppPin) TextButton(onClick = { viewModel.removeAppPin(); onClose() }) { Text("Disable") }; TextButton(onClick = onClose) { Text("Cancel") } } })
+    )
 }
 
 @Composable

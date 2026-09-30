@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.ui.components.PinInput
 import com.example.ui.theme.ElectricCyan
 
 @Composable
@@ -39,17 +40,13 @@ fun AppLockScreen(onUnlock: (String) -> Boolean) {
         Icon(Icons.Default.Lock, contentDescription = null, tint = ElectricCyan)
         Text("FX Journal is locked", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 16.dp))
         Text("Enter your 4-digit PIN to continue", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp, bottom = 24.dp))
-        OutlinedTextField(
+        PinInput(
             value = pin,
-            onValueChange = { if (it.length <= 4 && it.all(Char::isDigit)) { pin = it; invalid = false } },
-            label = { Text("4-digit PIN") },
+            onValueChange = { pin = it; invalid = false },
             isError = invalid,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
+            autoFocus = true
         )
-        if (invalid) Text("Incorrect PIN", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp))
+        if (invalid) Text("Incorrect PIN", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 10.dp))
         Button(onClick = { invalid = !onUnlock(pin) }, enabled = pin.length == 4, modifier = Modifier.fillMaxWidth().padding(top = 20.dp)) {
             Text("Unlock")
         }
