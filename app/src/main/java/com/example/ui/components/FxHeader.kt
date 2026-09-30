@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +56,7 @@ fun FxHeader(
     onBackClick: () -> Unit = {},
     themeMode: ThemeMode = ThemeMode.AMOLED,
     onThemeClick: () -> Unit = {},
+    onPaletteClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     profileName: String = "Trader"
@@ -187,6 +189,21 @@ fun FxHeader(
                     .size(5.dp)
                     .clip(CircleShape)
                     .background(EmeraldProfit)
+            )
+        }
+
+        // Accent Color Palette Button
+        IconButton(
+            onClick = onPaletteClick,
+            modifier = Modifier
+                .size(38.dp)
+                .testTag("palette_button")
+        ) {
+            Icon(
+                imageVector = Icons.Default.Palette,
+                contentDescription = "App Colors",
+                tint = ElectricCyan,
+                modifier = Modifier.size(20.dp)
             )
         }
 

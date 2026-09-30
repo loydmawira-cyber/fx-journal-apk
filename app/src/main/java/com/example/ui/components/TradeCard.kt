@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MenuBook
@@ -35,11 +36,19 @@ import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,8 +81,13 @@ fun TradeCard(
     onDownvoteClick: () -> Unit,
     onCommentClick: () -> Unit,
     onBookmarkClick: () -> Unit,
-    onShareClick: (Trade) -> Unit
+    onShareClick: (Trade) -> Unit,
+    isOwner: Boolean = false,
+    onChangeVisibility: (TradeVisibility) -> Unit = {},
+    onDelete: () -> Unit = {}
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
+    var pendingAction by remember { mutableStateOf<String?>(null) } // "PUBLIC", "PRIVATE" or "DELETE"
     val status = trade.status
     val outcomeColor = when(status) {
         TradeStatus.OPEN -> ElectricCyan
@@ -95,6 +109,55 @@ fun TradeCard(
             .clickable { onClick() }
             .testTag("trade_card_${trade.id}")
     ) {
+        pendingAction?.let { action ->
+            AlertDialog(
+                onDismissRequest = { pendingAction = null },
+                title = {
+                    Text(
+                        when (action) {
+                            "PUBLIC" -> "Make this post public?"
+                            "PRIVATE" -> "Make this post private?"
+                            else -> "Delete this post?"
+                        }
+                    )
+                },
+                text = {
+                    Text(
+                        when (action) {
+                            "PUBLIC" -> "Everyone will be able to see it in the community feed, and vote and comment on it."
+                            "PRIVATE" -> "It will be removed from the community feed. Only you will see it in your journal."
+                            else -> "This permanently deletes the post from your journal and the feed. This can't be undone."
+                        }
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            pendingAction = null
+                            when (action) {
+                                "PUBLIC" -> onChangeVisibility(TradeVisibility.PUBLIC)
+                                "PRIVATE" -> onChangeVisibility(TradeVisibility.PRIVATE)
+                                else -> onDelete()
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = when (action) {
+                                "PUBLIC" -> "Make Public"
+                                "PRIVATE" -> "Make Private"
+                                else -> "Delete"
+                            },
+                            color = if (action == "DELETE") CrimsonLossBright else ElectricCyan,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingAction = null }) { Text("Cancel") }
+                }
+            )
+        }
+
         // High-Frequency Edge Indicator Accent Strip
         Box(
             modifier = Modifier
@@ -240,16 +303,52 @@ fun TradeCard(
                     }
                 }
 
-                IconButton(
-                    onClick = { /* menu action */ },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Menu",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
+                if (isOwner) {
+                    Box {
+                        IconButton(
+                            onClick = { menuOpen = true },
+                            modifier = Modifier.size(28.dp).testTag("trade_menu_${trade.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Menu",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            val makePublic = trade.visibility != TradeVisibility.PUBLIC
+                            DropdownMenuItem(
+                                text = { Text(if (makePublic) "Make Public" else "Make Private") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (makePublic) Icons.Default.Public else Icons.Default.Lock,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuOpen = false
+                                    pendingAction = if (makePublic) "PUBLIC" else "PRIVATE"
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete post", color = CrimsonLossBright) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = CrimsonLossBright,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuOpen = false
+                                    pendingAction = "DELETE"
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -420,7 +519,7 @@ fun TradeCard(
         }
 
         // High-Res Chart Snapshot (if available)
-        if (trade.chartImageUri != null) {
+        if (trade.chartImageUri != null || trade.chartDrawableRes != null) {
             Spacer(modifier = Modifier.height(10.dp))
             Box(
                 modifier = Modifier
@@ -431,6 +530,13 @@ fun TradeCard(
                 if (trade.chartImageUri != null) {
                     AsyncImage(
                         model = trade.chartImageUri,
+                        contentDescription = "Chart analysis",
+                        modifier = Modifier.fillMaxWidth(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else if (trade.chartDrawableRes != null) {
+                    Image(
+                        painter = painterResource(id = trade.chartDrawableRes),
                         contentDescription = "Chart analysis",
                         modifier = Modifier.fillMaxWidth(),
                         contentScale = ContentScale.Crop
