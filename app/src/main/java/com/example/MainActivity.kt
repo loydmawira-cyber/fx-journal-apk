@@ -51,7 +51,7 @@ import com.example.ui.components.CreateLogBottomSheet
 import com.example.ui.components.FxBottomBar
 import com.example.ui.components.FxHeader
 import com.example.ui.components.ThemeSelectorModal
-import com.example.ui.screens.BreakdownScreen
+import com.example.ui.screens.EconomicCalendarScreen
 import com.example.ui.screens.AppLockScreen
 import com.example.ui.screens.FeedScreen
 import com.example.ui.screens.ForgotPasswordScreen
@@ -155,7 +155,7 @@ fun FXJournalApp(viewModel: FxViewModel) {
         AppNavScreen.FEED -> "Community Feed"
         AppNavScreen.JOURNAL -> "Personal Journal"
         AppNavScreen.TRADERS -> "Verified Traders"
-        AppNavScreen.BREAKDOWN -> "Performance Audit"
+        AppNavScreen.BREAKDOWN -> "Economic Calendar"
         AppNavScreen.SETTINGS -> "User Settings"
         AppNavScreen.TRADE_DETAIL -> "Trade Detail"
         AppNavScreen.LOG_TRADE -> "Log Trade"
@@ -168,7 +168,7 @@ fun FXJournalApp(viewModel: FxViewModel) {
         AppNavScreen.FEED -> "Public Setups"
         AppNavScreen.JOURNAL -> "My Trades"
         AppNavScreen.TRADERS -> "Leaderboard"
-        AppNavScreen.BREAKDOWN -> "Quantitative Analysis"
+        AppNavScreen.BREAKDOWN -> "Market Events"
         AppNavScreen.SETTINGS -> "Configuration"
         AppNavScreen.TRADE_DETAIL -> "Execution"
         AppNavScreen.LOG_TRADE -> "v2.4 Live"
@@ -260,7 +260,7 @@ fun FXJournalApp(viewModel: FxViewModel) {
                     TradersScreen(viewModel = viewModel)
                 }
                 AppNavScreen.BREAKDOWN -> {
-                    BreakdownScreen(viewModel = viewModel)
+                    EconomicCalendarScreen()
                 }
                 AppNavScreen.TRADE_DETAIL -> {
                     selectedTrade?.let { trade ->
@@ -385,18 +385,6 @@ fun FXJournalApp(viewModel: FxViewModel) {
             onLogNewTradeClick = {
                 viewModel.toggleCreateLogSheet(false)
                 viewModel.navigateTo(AppNavScreen.LOG_TRADE)
-            },
-            onShareChartClick = {
-                viewModel.toggleCreateLogSheet(false)
-                viewModel.showToast("Select chart screenshot to analyze")
-            },
-            onPsychologyNoteClick = {
-                viewModel.toggleCreateLogSheet(false)
-                viewModel.showToast("Psychology check-in: Logged in Flow State (94%)")
-            },
-            onImportBrokerClick = {
-                viewModel.toggleCreateLogSheet(false)
-                viewModel.showToast("MT5 / cTrader Auto-Sync: 3 new executions detected")
             }
         )
     }
