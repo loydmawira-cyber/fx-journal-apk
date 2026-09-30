@@ -52,10 +52,7 @@ import com.example.ui.theme.OnElectricCyan
 @Composable
 fun CreateLogBottomSheet(
     onDismiss: () -> Unit,
-    onLogNewTradeClick: () -> Unit,
-    onShareChartClick: () -> Unit,
-    onPsychologyNoteClick: () -> Unit,
-    onImportBrokerClick: () -> Unit
+    onLogNewTradeClick: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var isPublicDefault by remember { mutableStateOf(true) }
@@ -202,54 +199,6 @@ fun CreateLogBottomSheet(
                 isHero = true,
                 onClick = onLogNewTradeClick,
                 testTag = "action_log_new_trade"
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Action 2: Share Chart Analysis
-            CreateActionItem(
-                icon = Icons.Default.AddPhotoAlternate,
-                iconTint = EmeraldProfit,
-                iconBg = MaterialTheme.colorScheme.surfaceContainerHighest,
-                title = "Share Chart Analysis",
-                badgeText = null,
-                badgeColor = Color.Transparent,
-                description = "Upload screenshot or TradingView markup",
-                isHero = false,
-                onClick = onShareChartClick,
-                testTag = "action_share_chart"
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Action 3: Psychology & Discipline Note
-            CreateActionItem(
-                icon = Icons.Default.Psychology,
-                iconTint = ElectricCyan,
-                iconBg = MaterialTheme.colorScheme.surfaceContainerHighest,
-                title = "Psychology & Discipline Note",
-                badgeText = null,
-                badgeColor = Color.Transparent,
-                description = "Mindset check-in, emotional state tracking",
-                isHero = false,
-                onClick = onPsychologyNoteClick,
-                testTag = "action_psychology_note"
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Action 4: Import from Broker / MT5
-            CreateActionItem(
-                icon = Icons.Default.SyncAlt,
-                iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
-                iconBg = MaterialTheme.colorScheme.surfaceContainerHighest,
-                title = "Import from Broker / MT5",
-                badgeText = "AUTO-SYNC",
-                badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                description = "Fetch recent executions automatically",
-                isHero = false,
-                onClick = onImportBrokerClick,
-                testTag = "action_import_broker"
             )
 
             Spacer(modifier = Modifier.height(28.dp))
