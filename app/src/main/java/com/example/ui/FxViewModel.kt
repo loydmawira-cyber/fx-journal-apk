@@ -722,16 +722,21 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     private val _appLocked = MutableStateFlow(securityPrefs.getString("pin_hash", null) != null)
     val appLocked: StateFlow<Boolean> = _appLocked.asStateFlow()
     val hasAppPin: Boolean get() = securityPrefs.getString("pin_hash", null) != null
+    // Observable copy so Settings updates the moment a PIN is saved or removed
+    private val _hasAppPinState = MutableStateFlow(securityPrefs.getString("pin_hash", null) != null)
+    val hasAppPinState: StateFlow<Boolean> = _hasAppPinState.asStateFlow()
 
     fun setAppPin(pin: String, onResult: (Boolean) -> Unit = {}) {
         if (!pin.matches(Regex("\\d{4}"))) { onResult(false); return }
         securityPrefs.edit().putString("pin_hash", hashPin(pin)).apply()
+        _hasAppPinState.value = true
         onResult(true)
         showToast("4-digit app lock enabled")
     }
 
     fun removeAppPin() {
         securityPrefs.edit().remove("pin_hash").apply()
+        _hasAppPinState.value = false
         _appLocked.value = false
         showToast("App lock disabled")
     }
