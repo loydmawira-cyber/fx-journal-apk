@@ -198,10 +198,11 @@ fun TradeDetailScreen(
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "AV",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = ElectricCyan
+                            com.example.ui.components.AvatarContent(
+                                handle = trade.authorHandle,
+                                initials = trade.authorName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase().ifBlank { "TR" },
+                                textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                textColor = ElectricCyan
                             )
                             Box(
                                 modifier = Modifier
@@ -378,6 +379,13 @@ fun TradeDetailScreen(
                         if (trade.chartImageUri != null) {
                             AsyncImage(
                                 model = trade.chartImageUri,
+                                contentDescription = "Trade Chart",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else if (trade.chartDrawableRes != null) {
+                            Image(
+                                painter = painterResource(id = trade.chartDrawableRes),
                                 contentDescription = "Trade Chart",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
@@ -925,13 +933,14 @@ private fun DiscussionCommentCard(
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = comment.authorInitials,
-                        style = MaterialTheme.typography.labelSmall.copy(
+                    com.example.ui.components.AvatarContent(
+                        handle = comment.authorHandle,
+                        initials = comment.authorInitials,
+                        textStyle = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
                         ),
-                        color = MaterialTheme.colorScheme.onSurface
+                        textColor = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1028,7 +1037,17 @@ private fun DiscussionCommentCard(
         TextButton(onClick = onReplyClick) { Text("Reply", style = MaterialTheme.typography.labelSmall, color = ElectricCyan) }
         comment.replies.forEach { reply ->
             Row(Modifier.padding(start = 18.dp, top = 4.dp), verticalAlignment = Alignment.Top) {
-                Text(reply.authorInitials, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = ElectricCyan)
+                Box(
+                    modifier = Modifier.size(22.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                    contentAlignment = Alignment.Center
+                ) {
+                    com.example.ui.components.AvatarContent(
+                        handle = reply.authorHandle,
+                        initials = reply.authorInitials,
+                        textStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
+                        textColor = ElectricCyan
+                    )
+                }
                 Spacer(Modifier.width(6.dp))
                 Text("${reply.authorName}: ${reply.content}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

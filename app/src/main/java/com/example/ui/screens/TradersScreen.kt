@@ -212,10 +212,11 @@ private fun TraderCardItem(
             ) {
                 val initials = trader.name.split(" ").mapNotNull { it.firstOrNull()?.toString() }
                     .take(2).joinToString("").uppercase().ifBlank { "T" }
-                Text(
-                    text = initials,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = ElectricCyan
+                com.example.ui.components.AvatarContent(
+                    handle = trader.handle,
+                    initials = initials,
+                    textStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    textColor = ElectricCyan
                 )
             }
 
