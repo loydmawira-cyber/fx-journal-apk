@@ -28,6 +28,8 @@ import com.squareup.moshi.Moshi
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.example.ui.components.AvatarStore
 import com.google.firebase.firestore.FieldValue
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -169,6 +171,60 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ---------- Profile pictures (small square JPEG stored in the user's Firestore document) ----------
+    private val avatarRequested = mutableSetOf<String>()
+
+    private fun encodeAvatar(uri: Uri): ByteArray? = try {
+        val resolver = getApplication<Application>().contentResolver
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (minOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 256) sample *= 2
+        val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+        val bmp = resolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, opts) }
+        if (bmp == null) null else {
+            // centre-crop to a square, then shrink to 256px
+            val side = minOf(bmp.width, bmp.height)
+            val square = android.graphics.Bitmap.createBitmap(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side)
+            val small = android.graphics.Bitmap.createScaledBitmap(square, 256, 256, true)
+            val out = ByteArrayOutputStream()
+            small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
+            out.toByteArray()
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("FxViewModel", "Could not process profile photo", e)
+        null
+    }
+
+    private fun saveAvatarFile(name: String, bytes: ByteArray): String? = try {
+        val dir = File(getApplication<Application>().filesDir, "avatars").apply { mkdirs() }
+        val file = File(dir, "$name.jpg")
+        if (!file.exists()) file.writeBytes(bytes)
+        Uri.fromFile(file).toString()
+    } catch (e: Exception) {
+        android.util.Log.e("FxViewModel", "Could not save profile photo", e)
+        null
+    }
+
+    /** Download the profile pictures of other traders (post authors, commenters) so they show everywhere. */
+    private fun ensureAvatars(uids: Collection<String>) {
+        val me = auth.currentUser?.uid
+        uids.filter { it.isNotBlank() && it != me && avatarRequested.add(it) }.forEach { uid ->
+            firestore.collection("users").document(uid).get()
+                .addOnSuccessListener { doc ->
+                    val handle = doc.getString("handle")
+                    val b64 = doc.getString("photoB64")
+                    if (!handle.isNullOrBlank() && !b64.isNullOrBlank()) {
+                        viewModelScope.launch(Dispatchers.IO) {
+                            val uri = saveAvatarFile("${uid}_${b64.hashCode()}", Base64.decode(b64, Base64.DEFAULT))
+                            if (uri != null) withContext(Dispatchers.Main) { AvatarStore.put(handle, uri) }
+                        }
+                    }
+                }
+                .addOnFailureListener { avatarRequested.remove(uid) }
+        }
+    }
+
     private fun persistTradeToCloud(trade: Trade) {
         val uid = auth.currentUser?.uid ?: return
         val json = tradeAdapter.toJson(TradeEntity.fromDomain(trade))
@@ -259,6 +315,15 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentUser = MutableStateFlow<FxUser?>(null)
     val currentUser: StateFlow<FxUser?> = _currentUser.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            _currentUser.collect { u ->
+                val photo = u?.photoUri
+                if (u != null && !photo.isNullOrBlank()) AvatarStore.put(u.handle, photo)
+            }
+        }
+    }
+
     // People who follow me / people I follow
     val followers: StateFlow<List<FollowDoc>> = combine(_followDocs, _currentUser) { docs, _ ->
         val me = auth.currentUser?.uid
@@ -299,7 +364,9 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                                     email = firebaseUser.email ?: "",
                                     name = name,
                                     handle = handle,
-                                    photoUri = document.getString("photoUri") ?: securityPrefs.getString("profile_photo", null),
+                                    photoUri = document.getString("photoB64")?.takeIf { it.isNotBlank() }?.let { b64 ->
+                                        saveAvatarFile("${firebaseUser.uid}_${b64.hashCode()}", Base64.decode(b64, Base64.DEFAULT))
+                                    } ?: securityPrefs.getString("profile_photo", null),
                                     publicPostAudience = document.getString("publicPostAudience") ?: securityPrefs.getString("profile_audience", "everyone") ?: "everyone"
                                 )
                             } else {
@@ -438,6 +505,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 } ?: emptyList()
                 communityDocIds = items.associate { it.first.id to it.third }
                 _communityTrades.value = items.map { it.first }
+                ensureAvatars(items.map { it.second })
                 traderSource = items.map { it.first to it.second }
                 rebuildTraders()
             }
@@ -464,6 +532,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         discussionListener = firestore.collectionGroup("discussion").addSnapshotListener { snapshot, error ->
             if (error != null) { android.util.Log.e("FxViewModel", "Comments failed", error); return@addSnapshotListener }
             _commentDocs.value = snapshot?.documents?.mapNotNull { parseComment(it) } ?: emptyList()
+            ensureAvatars(_commentDocs.value.map { it.authorUid })
         }
     }
 
@@ -680,6 +749,24 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     fun updateProfile(name: String, handle: String, photoUri: Uri?, audience: String, onDone: () -> Unit = {}) {
+        if (photoUri == null) {
+            applyProfile(name, handle, null, null, audience, onDone)
+            return
+        }
+        // Shrink the picked photo, keep a permanent copy on the phone and upload it so everyone sees it
+        viewModelScope.launch(Dispatchers.IO) {
+            val bytes = encodeAvatar(photoUri)
+            val b64 = bytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+            val local = if (bytes != null && b64 != null) {
+                saveAvatarFile("${auth.currentUser?.uid ?: "me"}_${b64.hashCode()}", bytes)
+            } else null
+            withContext(Dispatchers.Main) {
+                applyProfile(name, handle, local?.let { Uri.parse(it) } ?: photoUri, b64, audience, onDone)
+            }
+        }
+    }
+
+    private fun applyProfile(name: String, handle: String, photoUri: Uri?, photoB64: String?, audience: String, onDone: () -> Unit) {
         val cleanName = name.trim().ifBlank { "Trader" }
         val cleanHandle = "@${handle.trim().removePrefix("@").replace(" ", "").lowercase()}"
         val localUser = _currentUser.value?.copy(
@@ -704,7 +791,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             "handle" to cleanHandle,
             "publicPostAudience" to audience
         )
-        if (photoUri != null) updates["photoUri"] = photoUri.toString()
+        if (photoB64 != null) updates["photoB64"] = photoB64
         firestore.collection("users").document(user.uid).set(updates, SetOptions.merge())
             .addOnFailureListener { showToast("Saved on this device; cloud sync will retry later") }
     }
