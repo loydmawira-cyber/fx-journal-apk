@@ -428,35 +428,40 @@ fun TradeDetailScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 4-Point Execution Telemetry Bar
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        TelemetryPoint(
-                            label = "ENTRY",
-                            value = String.format("%.5f", trade.entryPrice).trimEnd('0').trimEnd('.'),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TelemetryPoint(
-                            label = "STOP LOSS",
-                            value = String.format("%.5f", trade.stopLoss).trimEnd('0').trimEnd('.'),
-                            color = CrimsonLossBright,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TelemetryPoint(
-                            label = "TAKE PROFIT",
-                            value = String.format("%.5f", trade.takeProfit).trimEnd('0').trimEnd('.'),
-                            color = EmeraldProfit,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TelemetryPoint(
-                            label = "R:R",
-                            value = trade.riskRewardRatio,
-                            color = ElectricCyan,
-                            modifier = Modifier.weight(1f)
-                        )
+                    // Execution telemetry: only the figures the trader actually set
+                    val detailRatio = trade.riskRewardRatio.split(":").lastOrNull()?.trim()?.toDoubleOrNull() ?: 0.0
+                    val showDetailRatio = trade.entryPrice != 0.0 && trade.stopLoss != 0.0 &&
+                        trade.takeProfit != 0.0 && detailRatio > 0.0
+                    if (trade.entryPrice != 0.0 || trade.stopLoss != 0.0 || trade.takeProfit != 0.0 || showDetailRatio) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (trade.entryPrice != 0.0) TelemetryPoint(
+                                label = "ENTRY",
+                                value = String.format("%.5f", trade.entryPrice).trimEnd('0').trimEnd('.'),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (trade.stopLoss != 0.0) TelemetryPoint(
+                                label = "STOP LOSS",
+                                value = String.format("%.5f", trade.stopLoss).trimEnd('0').trimEnd('.'),
+                                color = CrimsonLossBright,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (trade.takeProfit != 0.0) TelemetryPoint(
+                                label = "TAKE PROFIT",
+                                value = String.format("%.5f", trade.takeProfit).trimEnd('0').trimEnd('.'),
+                                color = EmeraldProfit,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (showDetailRatio) TelemetryPoint(
+                                label = "R:R",
+                                value = trade.riskRewardRatio,
+                                color = ElectricCyan,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
