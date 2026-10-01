@@ -428,8 +428,19 @@ fun TradeCard(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Quantitative Telemetry Grid (4 Columns)
-        Row(
+        // Only show the figures the trader actually filled in
+        val showEntry = trade.entryPrice != 0.0
+        val showTarget = (if (trade.rMultiple < 0) trade.stopLoss else trade.takeProfit) != 0.0
+        val ratioValue = trade.riskRewardRatio.split(":").lastOrNull()?.trim()?.toDoubleOrNull() ?: 0.0
+        val showRatio = if (trade.rMultiple < 0) {
+            trade.entryPrice != 0.0 && trade.stopLoss != 0.0
+        } else {
+            trade.entryPrice != 0.0 && trade.stopLoss != 0.0 && trade.takeProfit != 0.0 && ratioValue > 0.0
+        }
+        val showOutcome = status != TradeStatus.OPEN
+
+        // Quantitative Telemetry Grid (hidden columns when not set)
+        if (showEntry || showTarget || showRatio || showOutcome) Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp)
@@ -438,7 +449,7 @@ fun TradeCard(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            if (showEntry) Column {
                 Text(
                     text = "ENTRY",
                     style = MaterialTheme.typography.labelSmall.copy(
@@ -458,7 +469,7 @@ fun TradeCard(
                 )
             }
 
-            Column {
+            if (showTarget) Column {
                 Text(
                     text = if (trade.rMultiple < 0) "STOP HIT" else "TARGET",
                     style = MaterialTheme.typography.labelSmall.copy(
@@ -478,7 +489,7 @@ fun TradeCard(
                 )
             }
 
-            Column {
+            if (showRatio) Column {
                 Text(
                     text = if (trade.rMultiple < 0) "RISK %" else "R:R RATIO",
                     style = MaterialTheme.typography.labelSmall.copy(
@@ -498,7 +509,7 @@ fun TradeCard(
                 )
             }
 
-            Column(horizontalAlignment = Alignment.End) {
+            if (showOutcome) Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "OUTCOME",
                     style = MaterialTheme.typography.labelSmall.copy(
