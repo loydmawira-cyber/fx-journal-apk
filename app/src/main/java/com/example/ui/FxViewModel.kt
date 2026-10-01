@@ -312,7 +312,29 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     // Other traders' posts the user saved
     val savedOthers: StateFlow<List<Trade>>
 
-    private val _currentUser = MutableStateFlow<FxUser?>(null)
+    /** Build a user straight from the saved login so the app can open instantly (no waiting for the network). */
+    private fun quickUserFrom(fu: com.google.firebase.auth.FirebaseUser): FxUser {
+        val sameAccount = securityPrefs.getString("profile_uid", null) == fu.uid
+        val name = (if (sameAccount) securityPrefs.getString("profile_name", null) else null)
+            ?: fu.displayName?.takeIf { it.isNotBlank() }
+            ?: fu.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
+            ?: "Trader"
+        val handle = (if (sameAccount) securityPrefs.getString("profile_handle", null) else null)
+            ?: "@${name.replace(" ", "").lowercase()}"
+        return FxUser(
+            uid = fu.uid,
+            email = fu.email ?: "",
+            name = name,
+            handle = handle,
+            photoUri = if (sameAccount) securityPrefs.getString("profile_photo", null) else null,
+            publicPostAudience = (if (sameAccount) securityPrefs.getString("profile_audience", null) else null) ?: "everyone"
+        )
+    }
+
+    // Start already signed in if a saved login exists: no login-page flash while the profile loads
+    private val _currentUser = MutableStateFlow<FxUser?>(
+        runCatching { auth.currentUser }.getOrNull()?.let { quickUserFrom(it) }
+    )
     val currentUser: StateFlow<FxUser?> = _currentUser.asStateFlow()
 
     init {
@@ -341,6 +363,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             auth.addAuthStateListener { firebaseAuth ->
                 val firebaseUser = firebaseAuth.currentUser
                 if (firebaseUser != null) {
+                    if (_currentUser.value?.uid != firebaseUser.uid) _currentUser.value = quickUserFrom(firebaseUser)
                     syncLocalThenLoad(firebaseUser.uid)
                     listenPublicTrades()
                     loadNotifications(firebaseUser.uid)
@@ -359,6 +382,11 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                                 val handle = document.getString("handle")?.takeIf { it.isNotBlank() }
                                     ?: securityPrefs.getString("profile_handle", null)
                                     ?: "@${name.replace(" ", "").lowercase()}"
+                                securityPrefs.edit()
+                                    .putString("profile_uid", firebaseUser.uid)
+                                    .putString("profile_name", name)
+                                    .putString("profile_handle", handle)
+                                    .apply()
                                 _currentUser.value = FxUser(
                                     uid = firebaseUser.uid,
                                     email = firebaseUser.email ?: "",
@@ -782,6 +810,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         )
         if (localUser != null) _currentUser.value = localUser
         securityPrefs.edit()
+            .putString("profile_uid", auth.currentUser?.uid)
             .putString("profile_name", cleanName)
             .putString("profile_handle", cleanHandle)
             .putString("profile_audience", audience)
