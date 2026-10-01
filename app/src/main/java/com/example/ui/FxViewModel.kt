@@ -158,6 +158,21 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Copy a picked screenshot into the app's own storage so it never expires (picker links stop working later). */
+    private fun copyChartToPrivateStorage(uriString: String?): String? {
+        if (uriString.isNullOrBlank()) return null
+        val b64 = encodeChart(uriString) ?: return uriString
+        return try {
+            val dir = File(getApplication<Application>().filesDir, "charts").apply { mkdirs() }
+            val file = File(dir, "local_${System.currentTimeMillis()}.jpg")
+            file.writeBytes(Base64.decode(b64, Base64.DEFAULT))
+            Uri.fromFile(file).toString()
+        } catch (e: Exception) {
+            android.util.Log.e("FxViewModel", "Could not keep chart image", e)
+            uriString
+        }
+    }
+
     private fun restoreChart(docId: String, b64: String?): String? {
         if (b64.isNullOrBlank()) return null
         return try {
@@ -238,7 +253,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             )
             if (chart != null) own["chartB64"] = chart
             firestore.collection("users").document(uid).collection("trades").document(trade.id.toString())
-                .set(own)
+                .set(own, SetOptions.merge())
                 .addOnFailureListener { android.util.Log.e("FxViewModel", "Saving trade failed", it) }
             // 2) Shared copy in the public feed (only if PUBLIC)
             val publicRef = firestore.collection("publicTrades").document(docId)
@@ -248,7 +263,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                     "localId" to trade.id, "timestamp" to trade.timestamp
                 )
                 if (chart != null) shared["chartB64"] = chart
-                publicRef.set(shared)
+                publicRef.set(shared, SetOptions.merge())
                     .addOnFailureListener { android.util.Log.e("FxViewModel", "Publishing trade failed", it) }
             } else {
                 publicRef.delete()
@@ -675,7 +690,11 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // Theme Mode
-    private val _themeMode = MutableStateFlow(ThemeMode.AMOLED)
+    private val _themeMode = MutableStateFlow(
+        securityPrefs.getString("theme_mode", null)
+            ?.let { saved -> runCatching { ThemeMode.valueOf(saved) }.getOrNull() }
+            ?: ThemeMode.AMOLED
+    )
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
     // Modals & Bottom Sheets
@@ -935,6 +954,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setThemeMode(mode: ThemeMode) {
         _themeMode.value = mode
+        securityPrefs.edit().putString("theme_mode", mode.name).apply()
         showToast("Theme switched to: ${mode.title}")
     }
 
@@ -1274,6 +1294,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             val maxRisk = Math.round(positionSizeLots * 480.0 * 100.0) / 100.0
             val netGain = Math.round(maxRisk * rMultiple * 100.0) / 100.0
 
+            val storedChart = withContext(Dispatchers.IO) { copyChartToPrivateStorage(chartImageUri) }
             val trade = Trade(
                 pair = pair,
                 direction = direction,
@@ -1304,7 +1325,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 planAdherencePercent = 100,
                 disciplineScore = 5.0,
                 tags = selectedTags,
-                chartImageUri = chartImageUri,
+                chartImageUri = storedChart,
                 brokerName = "IC Markets (cTrader Raw)",
                 slippagePips = 0.1,
                 durationText = if (status == TradeStatus.OPEN) "Running" else "Closed"
