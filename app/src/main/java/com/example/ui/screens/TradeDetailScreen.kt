@@ -323,7 +323,7 @@ fun TradeDetailScreen(
                                         .padding(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = trade.direction.name,
+                                        text = if (trade.direction == TradeDirection.LONG) "BUY" else "SELL",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.sp
@@ -340,7 +340,7 @@ fun TradeDetailScreen(
                         }
 
                         Column(horizontalAlignment = Alignment.End) {
-                            Box(
+                            if (trade.rMultiple != 0.0) Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(outcomeColor.copy(alpha = 0.15f))
