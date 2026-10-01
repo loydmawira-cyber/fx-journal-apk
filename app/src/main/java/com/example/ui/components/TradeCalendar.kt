@@ -154,7 +154,8 @@ fun TradeCalendar(
                                 .background(
                                     if (dayTrades.isNotEmpty()) {
                                         val dailyR = dayTrades.sumOf { it.rMultiple }
-                                        if (dailyR >= 0) EmeraldProfit.copy(alpha = 0.15f)
+                                        if (dailyR == 0.0) ElectricCyan.copy(alpha = 0.12f)
+                                        else if (dailyR > 0) EmeraldProfit.copy(alpha = 0.15f)
                                         else CrimsonLossBright.copy(alpha = 0.15f)
                                     } else Color.Transparent
                                 )
@@ -169,7 +170,7 @@ fun TradeCalendar(
                                     ),
                                     color = if (dayTrades.isNotEmpty()) {
                                         val dailyR = dayTrades.sumOf { it.rMultiple }
-                                        if (dailyR >= 0) EmeraldProfit else CrimsonLossBright
+                                        if (dailyR == 0.0) ElectricCyan else if (dailyR > 0) EmeraldProfit else CrimsonLossBright
                                     } else MaterialTheme.colorScheme.onSurface
                                 )
                                 
@@ -244,13 +245,16 @@ fun DailySummaryCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 val totalRMultiple = trades.sumOf { it.rMultiple }
+                val hasResults = trades.any { it.rMultiple != 0.0 }
                 SummaryStat(label = "TRADES", value = trades.size.toString())
-                SummaryStat(
-                    label = "NET R-GAIN",
-                    value = "${if (totalRMultiple >= 0) "+" else ""}${String.format("%.1f", totalRMultiple)}R",
-                    color = if (totalRMultiple >= 0) EmeraldProfit else CrimsonLossBright
-                )
-                SummaryStat(label = "W/L", value = "$winCount / $lossCount")
+                if (hasResults) {
+                    SummaryStat(
+                        label = "NET R-GAIN",
+                        value = "${if (totalRMultiple >= 0) "+" else ""}${String.format("%.1f", totalRMultiple)}R",
+                        color = if (totalRMultiple >= 0) EmeraldProfit else CrimsonLossBright
+                    )
+                    SummaryStat(label = "W/L", value = "$winCount / $lossCount")
+                }
             }
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -276,16 +280,22 @@ fun DailySummaryCard(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(if (trade.rMultiple >= 0) EmeraldProfit else CrimsonLossBright)
+                                .background(
+                                    when {
+                                        trade.rMultiple == 0.0 -> ElectricCyan
+                                        trade.rMultiple > 0 -> EmeraldProfit
+                                        else -> CrimsonLossBright
+                                    }
+                                )
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "${trade.pair} ${trade.direction}",
+                            text = "${trade.pair} ${if (trade.direction == com.example.model.TradeDirection.LONG) "BUY" else "SELL"}",
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    Text(
+                    if (trade.rMultiple != 0.0) Text(
                         text = "${if (trade.rMultiple >= 0) "+" else ""}${trade.rMultiple}R",
                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                         color = if (trade.rMultiple >= 0) EmeraldProfit else CrimsonLossBright
