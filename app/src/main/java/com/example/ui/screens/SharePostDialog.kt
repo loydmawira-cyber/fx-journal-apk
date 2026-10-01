@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import com.example.model.Trade
 
 private fun shareText(trade: Trade): String = buildString {
-    append("${trade.pair} ${trade.direction.name} setup by ${trade.authorName} (${trade.authorHandle})\n")
+    append("${trade.pair} ${if (trade.direction == com.example.model.TradeDirection.LONG) "BUY" else "SELL"} setup by ${trade.authorName} (${trade.authorHandle})\n")
     append("Strategy: ${trade.setupStrategy}\n")
     append("Timeframe: ${trade.timeframe}${if (trade.riskRewardRatio.isNotBlank()) " • R:R ${trade.riskRewardRatio}" else ""}\n")
     append("Entry: ${trade.entryPrice} | SL: ${trade.stopLoss} | TP: ${trade.takeProfit}\n")
