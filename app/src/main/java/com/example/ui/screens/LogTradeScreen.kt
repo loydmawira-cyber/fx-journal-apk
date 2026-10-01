@@ -402,7 +402,7 @@ fun LogTradeScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "LONG",
+                                text = "BUY",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = if (direction == TradeDirection.LONG) EmeraldProfit else MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -439,7 +439,7 @@ fun LogTradeScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "SHORT",
+                                text = "SELL",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = if (direction == TradeDirection.SHORT) CrimsonLossBright else MaterialTheme.colorScheme.onSurfaceVariant
                             )
