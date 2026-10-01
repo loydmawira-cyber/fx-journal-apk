@@ -86,7 +86,7 @@ fun FeedScreen(
             trade.authorHandle == user?.handle ||
             trade.authorHandle in followingHandles
         val matchesTab = if (feedTab == "following") {
-            trade.authorHandle in followingHandles || trade.authorHandle == user?.handle
+            trade.authorHandle in followingHandles
         } else true
 
         val matchesPair = if (pairFilter == "All Pairs") true else trade.pair.contains(pairFilter, ignoreCase = true)
@@ -325,30 +325,23 @@ fun FeedScreen(
                 }
             }
 
-            if (feedTab == "following") {
+            items(filteredTrades, key = { it.id }) { trade ->
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { shareTrade = it }, isOwner = viewModel.isMyTrade(trade), onChangeVisibility = { viewModel.changeTradeVisibility(trade, it) }, onDelete = { viewModel.deleteMyTrade(trade) })
+                }
+            }
+
+            if (filteredTrades.isEmpty()) {
                 item {
-                    Text("Profiles you follow", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp))
-                }
-                items(traders.filter { it.isFollowing }, key = { "following_${it.id}" }) { trader ->
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), Alignment.Center) {
-                            Text(trader.name.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString(""), color = ElectricCyan, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) { Text(trader.name, fontWeight = FontWeight.Bold); if (trader.isVerified) Icon(Icons.Default.Verified, null, tint = ElectricCyan, modifier = Modifier.size(15.dp).padding(start = 2.dp)) }
-                            Text(trader.handle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${trader.followers} followers • ${trader.netRGain}", style = MaterialTheme.typography.labelSmall, color = EmeraldProfit)
-                        }
-                        Button(onClick = { viewModel.toggleFollowTrader(trader.id) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) { Text("Following", style = MaterialTheme.typography.labelSmall) }
-                    }
-                }
-                if (traders.none { it.isFollowing }) item { Text("You are not following anyone yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
-            } else {
-                items(filteredTrades, key = { it.id }) { trade ->
-                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                        TradeCard(trade = trade, onClick = { onTradeClick(trade) }, onUpvoteClick = { viewModel.toggleUpvote(trade) }, onDownvoteClick = { viewModel.toggleDownvote(trade) }, onCommentClick = { onTradeClick(trade) }, onBookmarkClick = { viewModel.toggleBookmark(trade) }, onShareClick = { shareTrade = it }, isOwner = viewModel.isMyTrade(trade), onChangeVisibility = { viewModel.changeTradeVisibility(trade, it) }, onDelete = { viewModel.deleteMyTrade(trade) })
-                    }
+                    Text(
+                        text = when {
+                            feedTab == "following" && followingCount == 0 -> "You are not following anyone yet. Follow traders from the Community Feed to see their posts here."
+                            feedTab == "following" -> "No posts from the people you follow yet."
+                            else -> "No posts to show yet."
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(24.dp)
+                    )
                 }
             }
         }
