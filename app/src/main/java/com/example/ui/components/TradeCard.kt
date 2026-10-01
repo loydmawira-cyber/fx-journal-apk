@@ -401,7 +401,7 @@ fun TradeCard(
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                     Text(
-                        text = if (trade.rMultiple < 0) "STOPPED ${trade.rMultiple}R" else "${trade.direction.name} ${trade.rMultiple}R",
+                        text = if (trade.rMultiple < 0) "STOPPED" else if (trade.direction == TradeDirection.LONG) "BUY" else "SELL",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
