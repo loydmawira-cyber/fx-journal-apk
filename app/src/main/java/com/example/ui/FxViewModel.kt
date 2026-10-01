@@ -1273,24 +1273,17 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
-            val rMultiple = if (status == TradeStatus.OPEN) {
-                0.0
-            } else if (direction == TradeDirection.LONG) {
-                val risk = entryPrice - stopLoss
-                val reward = takeProfit - entryPrice
-                if (risk > 0) {
-                    if (status == TradeStatus.STOPPED) -1.0
-                    else Math.round((reward / risk) * 100.0) / 100.0
-                } else 2.5
-            } else {
-                val risk = stopLoss - entryPrice
-                val reward = entryPrice - takeProfit
-                if (risk > 0) {
-                    if (status == TradeStatus.STOPPED) -1.0
-                    else Math.round((reward / risk) * 100.0) / 100.0
-                } else 2.5
+            // R:R is only calculated from prices the trader actually entered
+            val plannedRR: Double? = if (entryPrice > 0.0 && stopLoss > 0.0 && takeProfit > 0.0) {
+                val risk = if (direction == TradeDirection.LONG) entryPrice - stopLoss else stopLoss - entryPrice
+                val reward = if (direction == TradeDirection.LONG) takeProfit - entryPrice else entryPrice - takeProfit
+                if (risk > 0.0 && reward > 0.0) Math.round((reward / risk) * 100.0) / 100.0 else null
+            } else null
+            val rMultiple = when {
+                status == TradeStatus.OPEN || plannedRR == null -> 0.0
+                status == TradeStatus.STOPPED -> -1.0
+                else -> plannedRR
             }
-
             val maxRisk = Math.round(positionSizeLots * 480.0 * 100.0) / 100.0
             val netGain = Math.round(maxRisk * rMultiple * 100.0) / 100.0
 
@@ -1305,7 +1298,7 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 stopLoss = stopLoss,
                 takeProfit = takeProfit,
                 positionSizeLots = positionSizeLots,
-                riskRewardRatio = "1 : $rMultiple",
+                riskRewardRatio = plannedRR?.let { "1 : $it" } ?: "",
                 rMultiple = rMultiple,
                 netGainDollars = netGain,
                 riskPercent = 1.0,
