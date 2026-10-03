@@ -137,34 +137,6 @@ fun FxHeader(
             )
         }
 
-        // Live Pill Indicator
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(horizontal = 8.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .scale(pulseScale)
-                    .clip(CircleShape)
-                    .background(EmeraldProfit)
-            )
-            Spacer(modifier = Modifier.width(5.dp))
-            Text(
-                text = "LIVE",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Spacer(modifier = Modifier.width(4.dp))
-
         // Theme Mode Toggle Button
         Box(
             contentAlignment = Alignment.Center

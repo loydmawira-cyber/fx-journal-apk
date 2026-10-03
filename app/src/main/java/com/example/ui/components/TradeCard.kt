@@ -193,25 +193,6 @@ fun TradeCard(
                         textStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         textColor = ElectricCyan
                     )
-
-                    // Verified badge pip
-                    if (trade.isAuthorVerified) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .size(13.dp)
-                                .clip(CircleShape)
-                                .background(ElectricCyan),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Verified",
-                                tint = OnElectricCyan,
-                                modifier = Modifier.size(9.dp)
-                            )
-                        }
-                    }
                 }
 
                 Spacer(modifier = Modifier.width(10.dp))
@@ -226,22 +207,6 @@ fun TradeCard(
                             ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                .padding(horizontal = 5.dp, vertical = 1.dp)
-                        ) {
-                            Text(
-                                text = trade.authorTier.label,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                color = if (trade.authorTier == com.example.model.TraderTier.LIVE) EmeraldProfit else ElectricCyan
-                            )
-                        }
                     }
 
                     Text(
@@ -631,7 +596,7 @@ fun TradeCard(
                         Text("Psychology Review: ${trade.psychologyNote}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp), color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
-            } else {
+            } else if (trade.executionThesis.isNotBlank()) {
                 Row {
                     Text(
                         text = "Execution thesis: ",
