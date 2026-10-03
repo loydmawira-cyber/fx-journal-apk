@@ -31,7 +31,8 @@ data class TradeComment(
     val likesCount: Int = 0,
     val isLiked: Boolean = false,
     val authorReply: TradeComment? = null,
-    val replies: List<TradeComment> = emptyList()
+    val replies: List<TradeComment> = emptyList(),
+    val imageUri: String? = null
 )
 
 data class Trade(
@@ -45,27 +46,27 @@ data class Trade(
     val stopLoss: Double,
     val takeProfit: Double,
     val exitPrice: Double? = null,
-    val positionSizeLots: Double = 1.0,
-    val riskRewardRatio: String = "1:2.9",
-    val rMultiple: Double = 2.0,
+    val positionSizeLots: Double = 0.0,
+    val riskRewardRatio: String = "",
+    val rMultiple: Double = 0.0,
     val netGainDollars: Double = 0.0,
-    val riskPercent: Double = 1.0,
-    val maxRiskDollars: Double = 1000.0,
+    val riskPercent: Double = 0.0,
+    val maxRiskDollars: Double = 0.0,
     val visibility: TradeVisibility = TradeVisibility.PUBLIC,
     val publicPostAudience: String = "everyone",
     val winRatePercent: Double? = null,
-    val status: TradeStatus = TradeStatus.WINNER,
+    val status: TradeStatus = TradeStatus.OPEN,
     val timestamp: Long = System.currentTimeMillis(),
     val timeAgo: String = "Just now",
     val authorName: String = "Trader",
     val authorHandle: String = "@trader",
-    val authorTier: TraderTier = TraderTier.VERIFIED,
-    val isAuthorVerified: Boolean = true,
+    val authorTier: TraderTier = TraderTier.FREE,
+    val isAuthorVerified: Boolean = false,
     val executionThesis: String = "",
     val psychologyNote: String? = null,
     val postMortemReflection: String? = null,
-    val planAdherencePercent: Int = 100,
-    val disciplineScore: Double = 5.0,
+    val planAdherencePercent: Int = 0,
+    val disciplineScore: Double = 0.0,
     val tags: List<String> = emptyList(),
     val chartDrawableRes: Int? = null,
     val chartImageUri: String? = null,
@@ -77,9 +78,9 @@ data class Trade(
     val isUpvoted: Boolean = false,
     val isDownvoted: Boolean = false,
     val isBookmarked: Boolean = false,
-    val brokerName: String = "IC Markets (cTrader Raw)",
-    val slippagePips: Double = 0.1,
-    val durationText: String = "2h 45m"
+    val brokerName: String = "",
+    val slippagePips: Double = 0.0,
+    val durationText: String = ""
 )
 
 data class TraderProfile(
@@ -92,7 +93,7 @@ data class TraderProfile(
     val streak: String,
     val netRGain: String,
     val followers: String,
-    val isVerified: Boolean = true,
+    val isVerified: Boolean = false,
     val isFollowing: Boolean = false
 )
 
