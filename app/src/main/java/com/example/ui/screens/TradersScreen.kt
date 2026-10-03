@@ -231,15 +231,6 @@ private fun TraderCardItem(
                         maxLines = 1,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    if (trader.isVerified) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = null,
-                            tint = ElectricCyan,
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
                 }
                 Text(
                     text = trader.handle,

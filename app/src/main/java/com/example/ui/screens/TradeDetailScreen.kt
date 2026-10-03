@@ -2,6 +2,8 @@ package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -101,6 +103,10 @@ fun TradeDetailScreen(
     var showAdvancedSpecs by remember { mutableStateOf(false) }
     var commentText by remember { mutableStateOf("") }
     var replyTarget by remember { mutableStateOf<String?>(null) }
+    var commentImage by remember { mutableStateOf<android.net.Uri?>(null) }
+    val commentImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { picked -> if (picked != null) commentImage = picked }
     var isChartExpanded by remember { mutableStateOf(false) }
 
     val isWin = trade.rMultiple >= 0
@@ -204,21 +210,6 @@ fun TradeDetailScreen(
                                 textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 textColor = ElectricCyan
                             )
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .size(14.dp)
-                                    .clip(CircleShape)
-                                    .background(ElectricCyan),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Verified,
-                                    contentDescription = "Verified",
-                                    tint = OnElectricCyan,
-                                    modifier = Modifier.size(10.dp)
-                                )
-                            }
                         }
 
                         Spacer(modifier = Modifier.width(12.dp))
@@ -358,11 +349,6 @@ fun TradeDetailScreen(
                                     )
                                 }
                             }
-                            Text(
-                                text = "Closed in ${trade.durationText}",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = MaterialTheme.colorScheme.outline
-                            )
                         }
                     }
 
@@ -464,56 +450,6 @@ fun TradeDetailScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Toggle Advanced Execution Specs
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                            .clickable { showAdvancedSpecs = !showAdvancedSpecs }
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                            .testTag("toggle_advanced_specs_btn"),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (showAdvancedSpecs) "Hide Execution Specs" else "Show Advanced Execution Specs",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 11.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = if (showAdvancedSpecs) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    // Collapsible Advanced Specs Content
-                    AnimatedVisibility(visible = showAdvancedSpecs) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                                .padding(12.dp)
-                        ) {
-                            SpecRow("Position Size / Volume", "${trade.positionSizeLots} Lots (250,000 Units)")
-                            SpecRow("Risk Committed", "${trade.riskPercent}% Risk Pool Committed")
-                            SpecRow("Holding Duration", trade.durationText)
-                            SpecRow("Broker / Bridge", trade.brokerName)
-                            SpecRow("Discipline Score", "5.0 ★★★★★ (${trade.planAdherencePercent}%)", isHighlight = true)
-                            SpecRow("Slippage / Fill", "${trade.slippagePips} pips (Market Exec)", isLast = true)
-                        }
-                    }
-
                     // Manual Outcome Update (for User's Open Trades)
                     if (trade.status == TradeStatus.OPEN && trade.authorHandle == viewModel.currentUser.value?.handle) {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -559,8 +495,8 @@ fun TradeDetailScreen(
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // Trade Thesis & Psychology Card
-            item {
+            // Trade Thesis & Psychology Card (only when the trader wrote something)
+            if (trade.executionThesis.isNotBlank()) item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -578,21 +514,6 @@ fun TradeDetailScreen(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(EmeraldProfit.copy(alpha = 0.15f))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "${trade.planAdherencePercent}% Plan Adherence",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 11.sp
-                                ),
-                                color = EmeraldProfit
-                            )
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -761,6 +682,36 @@ fun TradeDetailScreen(
             }
         }
 
+        // Preview of the photo attached to the comment being written
+        if (commentImage != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box {
+                    AsyncImage(
+                        model = commentImage,
+                        contentDescription = "Attached photo",
+                        modifier = Modifier.size(64.dp).clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    IconButton(
+                        onClick = { commentImage = null },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.6f))
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Remove photo", tint = Color.White, modifier = Modifier.size(12.dp))
+                    }
+                }
+            }
+        }
+
         // Sticky Bottom Quick-Comment Bar
         Row(
             modifier = Modifier
@@ -801,7 +752,7 @@ fun TradeDetailScreen(
                 )
 
                 IconButton(
-                    onClick = { viewModel.showToast("Attach chart screenshot") },
+                    onClick = { commentImagePicker.launch("image/*") },
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
@@ -817,9 +768,11 @@ fun TradeDetailScreen(
 
             IconButton(
                 onClick = {
-                    if (commentText.isNotBlank()) {
-                        if (replyTarget == null) viewModel.addComment(trade.id, commentText) else viewModel.addCommentReply(trade.id, replyTarget!!, commentText)
+                    if (commentText.isNotBlank() || commentImage != null) {
+                        val photo = commentImage?.toString()
+                        if (replyTarget == null) viewModel.addComment(trade.id, commentText, photo) else viewModel.addCommentReply(trade.id, replyTarget!!, commentText, photo)
                         commentText = ""
+                        commentImage = null
                         replyTarget = null
                     }
                 },
@@ -996,7 +949,7 @@ private fun DiscussionCommentCard(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        Text(
+        if (comment.content.isNotBlank()) Text(
             text = comment.content,
             style = MaterialTheme.typography.bodySmall.copy(
                 fontSize = 13.sp,
@@ -1005,6 +958,18 @@ private fun DiscussionCommentCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 36.dp)
         )
+        if (comment.imageUri != null) {
+            AsyncImage(
+                model = comment.imageUri,
+                contentDescription = "Attached photo",
+                modifier = Modifier
+                    .padding(start = 36.dp, top = 6.dp)
+                    .fillMaxWidth()
+                    .heightIn(max = 240.dp)
+                    .clip(RoundedCornerShape(10.dp)),
+                contentScale = ContentScale.Fit
+            )
+        }
 
         // Author reply if present
         if (comment.authorReply != null) {
@@ -1054,7 +1019,18 @@ private fun DiscussionCommentCard(
                     )
                 }
                 Spacer(Modifier.width(6.dp))
-                Text("${reply.authorName}: ${reply.content}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column {
+                    if (reply.content.isNotBlank()) Text("${reply.authorName}: ${reply.content}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else Text(reply.authorName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (reply.imageUri != null) {
+                        AsyncImage(
+                            model = reply.imageUri,
+                            contentDescription = "Attached photo",
+                            modifier = Modifier.padding(top = 4.dp).fillMaxWidth().heightIn(max = 200.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
             }
         }
                     Spacer(modifier = Modifier.width(4.dp))
