@@ -14,13 +14,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +58,9 @@ import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 private data class CalendarEvent(
     val title: String,
@@ -104,6 +114,29 @@ private suspend fun loadCalendar(force: Boolean): Result<List<CalendarEvent>> = 
     }
 }
 
+private const val UI_PREFS = "fx_journal_ui"
+private const val TZ_KEY = "calendar_tz"
+
+private fun gmtLabel(zone: TimeZone, atMillis: Long): String {
+    val mins = zone.getOffset(atMillis) / 60_000
+    val sign = if (mins >= 0) "+" else "-"
+    val abs = kotlin.math.abs(mins)
+    return "GMT%s%02d:%02d".format(sign, abs / 60, abs % 60)
+}
+
+private data class TzOption(val id: String, val offsetMinutes: Int, val label: String)
+
+private fun buildTimeZoneOptions(): List<TzOption> {
+    val now = System.currentTimeMillis()
+    return TimeZone.getAvailableIDs()
+        .filter { (it.contains("/") && !it.startsWith("Etc/") && !it.startsWith("SystemV/")) || it == "UTC" }
+        .map { id ->
+            val zone = TimeZone.getTimeZone(id)
+            TzOption(id, zone.getOffset(now) / 60_000, "${gmtLabel(zone, now)}  •  ${id.replace('_', ' ')}")
+        }
+        .sortedWith(compareBy({ it.offsetMinutes }, { it.id }))
+}
+
 private fun impactColor(impact: String): Color = when (impact) {
     "High" -> CrimsonLossBright
     "Medium" -> Color(0xFFFFB020)
@@ -129,8 +162,16 @@ fun EconomicCalendarScreen() {
         loading = false
     }
 
-    val dayFmt = remember { SimpleDateFormat("EEEE, d MMM", Locale.getDefault()) }
-    val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(UI_PREFS, android.content.Context.MODE_PRIVATE) }
+    // null = follow the phone's timezone
+    var tzId by remember { mutableStateOf(prefs.getString(TZ_KEY, null)) }
+    var showTzPicker by remember { mutableStateOf(false) }
+    val activeZone = remember(tzId) { tzId?.let { TimeZone.getTimeZone(it) } ?: TimeZone.getDefault() }
+    val dayFmt = remember(activeZone) { SimpleDateFormat("EEEE, d MMM", Locale.getDefault()).apply { timeZone = activeZone } }
+    val timeFmt = remember(activeZone) { SimpleDateFormat("HH:mm", Locale.getDefault()).apply { timeZone = activeZone } }
+    val zoneName = (if (tzId == null) "Phone time" else activeZone.id.substringAfterLast('/').replace('_', ' ')) +
+        " (" + gmtLabel(activeZone, System.currentTimeMillis()) + ")"
 
     val visible = events.filter { impactFilter == "All" || it.impact == impactFilter }
     val grouped = visible.groupBy { dayFmt.format(it.timeMillis) }
@@ -155,7 +196,7 @@ fun EconomicCalendarScreen() {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "This week • times in your local timezone",
+                    text = "This week • all times shown in the timezone below",
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -163,6 +204,25 @@ fun EconomicCalendarScreen() {
             IconButton(onClick = { refreshTick++ }, modifier = Modifier.testTag("calendar_refresh")) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = ElectricCyan)
             }
+        }
+
+        Row(
+            modifier = Modifier
+                .padding(start = 16.dp, top = 10.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .clickable { showTzPicker = true }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .testTag("calendar_timezone_button"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Public, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = zoneName,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
 
         Row(
@@ -292,5 +352,82 @@ fun EconomicCalendarScreen() {
                 item { Spacer(Modifier.height(16.dp)) }
             }
         }
+    }
+    if (showTzPicker) {
+        TimeZonePickerSheet(
+            selectedId = tzId,
+            onSelect = { id ->
+                tzId = id
+                prefs.edit().apply { if (id == null) remove(TZ_KEY) else putString(TZ_KEY, id) }.apply()
+                showTzPicker = false
+            },
+            onDismiss = { showTzPicker = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeZonePickerSheet(selectedId: String?, onSelect: (String?) -> Unit, onDismiss: () -> Unit) {
+    val options = remember { buildTimeZoneOptions() }
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(query) {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) options else options.filter { it.label.lowercase().contains(q) }
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(modifier = Modifier.fillMaxHeight(0.92f).padding(horizontal = 16.dp)) {
+            Text(
+                text = "Choose timezone",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                placeholder = { Text("Search city, country or GMT+3") },
+                modifier = Modifier.fillMaxWidth().testTag("timezone_search")
+            )
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                if (query.isBlank()) {
+                    item(key = "device") {
+                        TzRow(
+                            text = "Use my phone's timezone (automatic)",
+                            selected = selectedId == null,
+                            onClick = { onSelect(null) }
+                        )
+                    }
+                }
+                items(filtered, key = { it.id }) { option ->
+                    TzRow(text = option.label, selected = option.id == selectedId, onClick = { onSelect(option.id) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TzRow(text: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal),
+            color = if (selected) ElectricCyan else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (selected) Icon(Icons.Default.Check, contentDescription = "Selected", tint = ElectricCyan, modifier = Modifier.size(18.dp))
     }
 }
