@@ -98,9 +98,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // True while we hand over to a system screen (photo picker, file chooser) that we expect to return from
+    private var launchingExternalPicker = false
+
+    @Suppress("DEPRECATION")
+    override fun startActivityForResult(intent: android.content.Intent, requestCode: Int, options: Bundle?) {
+        launchingExternalPicker = true
+        super.startActivityForResult(intent, requestCode, options)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        launchingExternalPicker = false
+    }
+
     override fun onStop() {
         super.onStop()
-        if (::appViewModel.isInitialized) appViewModel.lockAppIfConfigured()
+        // Don't lock the app just because the photo picker opened
+        if (!launchingExternalPicker && ::appViewModel.isInitialized) appViewModel.lockAppIfConfigured()
     }
 }
 
