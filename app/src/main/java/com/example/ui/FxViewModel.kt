@@ -61,7 +61,8 @@ data class CloudComment(
     val content: String,
     val timestamp: Long,
     val parentId: String,
-    val likedBy: List<String>
+    val likedBy: List<String>,
+    val imageB64: String? = null
 )
 
 enum class AppNavScreen {
@@ -309,7 +310,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
             content = d.getString("content") ?: "",
             timestamp = d.getLong("timestamp") ?: 0L,
             parentId = d.getString("parentId") ?: "",
-            likedBy = (d.get("likedBy") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            likedBy = (d.get("likedBy") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+            imageB64 = d.getString("imageB64")
         )
     }
 
@@ -752,7 +754,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                     content = c.content,
                     likesCount = c.likedBy.size,
                     isLiked = mine != null && mine in c.likedBy,
-                    replies = replies
+                    replies = replies,
+                    imageUri = c.imageB64?.takeIf { it.isNotBlank() }?.let { restoreChart("cmt_${c.id}", it) }
                 )
                 val forTrade = if (docId == null) emptyList() else (docs + priv).filter { it.tradeDocId == docId }
                 forTrade.filter { it.parentId.isBlank() }.sortedByDescending { it.timestamp }.map { c ->
@@ -1145,8 +1148,8 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
     private fun initialsOf(name: String) =
         name.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").ifBlank { "T" }
 
-    private fun postComment(tradeId: Long, content: String, parentId: String) {
-        if (content.isBlank()) return
+    private fun postComment(tradeId: Long, content: String, parentId: String, imageUri: String? = null) {
+        if (content.isBlank() && imageUri == null) return
         val trade = findTrade(tradeId) ?: return
         val user = _currentUser.value
         val uid = auth.currentUser?.uid
@@ -1157,25 +1160,32 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
         val collection = if (shared) firestore.collection("publicTrades").document(docId).collection("discussion")
             else firestore.collection("users").document(uid).collection("privateDiscussion")
         val id = "c_${System.currentTimeMillis()}_${uid.take(4)}"
-        collection.document(id)
-            .set(mapOf(
+        viewModelScope.launch {
+            // Shrink the attached photo first so it fits in the comment
+            val imageB64 = if (imageUri != null) withContext(Dispatchers.IO) { encodeChart(imageUri) } else null
+            if (imageUri != null && imageB64 == null) { showToast("Could not read that image"); return@launch }
+            val data = mutableMapOf<String, Any>(
                 "tradeDocId" to docId, "authorUid" to uid,
                 "authorName" to user.name, "authorHandle" to user.handle,
                 "authorInitials" to initialsOf(user.name),
                 "content" to content.trim(), "timestamp" to System.currentTimeMillis(),
                 "parentId" to parentId, "likedBy" to emptyList<String>()
-            ))
-            .addOnSuccessListener { showToast(if (parentId.isBlank()) "Comment posted!" else "Reply posted") }
-            .addOnFailureListener { showToast("Could not post comment: ${it.message}") }
+            )
+            if (imageB64 != null) data["imageB64"] = imageB64
+            collection.document(id)
+                .set(data)
+                .addOnSuccessListener { showToast(if (parentId.isBlank()) "Comment posted!" else "Reply posted") }
+                .addOnFailureListener { showToast("Could not post comment: ${it.message}") }
+        }
         val owner = docId.substringBefore('_')
         if (shared && owner != uid) {
             notifyUser(owner, "comments", "New comment on your post", "${user.name} commented on your ${trade.pair} setup.")
         }
     }
 
-    fun addComment(tradeId: Long, content: String) = postComment(tradeId, content, "")
+    fun addComment(tradeId: Long, content: String, imageUri: String? = null) = postComment(tradeId, content, "", imageUri)
 
-    fun addCommentReply(tradeId: Long, commentId: String, content: String) = postComment(tradeId, content, commentId)
+    fun addCommentReply(tradeId: Long, commentId: String, content: String, imageUri: String? = null) = postComment(tradeId, content, commentId, imageUri)
 
     fun toggleCommentLike(tradeId: Long, commentId: String) {
         val uid = auth.currentUser?.uid ?: run { showToast("Sign in to like comments"); return }
@@ -1297,12 +1307,12 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 entryPrice = entryPrice,
                 stopLoss = stopLoss,
                 takeProfit = takeProfit,
-                positionSizeLots = positionSizeLots,
+                positionSizeLots = 0.0,
                 riskRewardRatio = plannedRR?.let { "1 : $it" } ?: "",
                 rMultiple = rMultiple,
-                netGainDollars = netGain,
-                riskPercent = 1.0,
-                maxRiskDollars = maxRisk,
+                netGainDollars = 0.0,
+                riskPercent = 0.0,
+                maxRiskDollars = 0.0,
                 visibility = visibility,
                 publicPostAudience = if (visibility == TradeVisibility.PUBLIC) (_currentUser.value?.publicPostAudience ?: "everyone") else "everyone",
                 winRatePercent = winRatePercent,
@@ -1311,17 +1321,10 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 timeAgo = "Just now",
                 authorName = _currentUser.value?.name ?: "Trader",
                 authorHandle = _currentUser.value?.handle ?: "@trader",
-                authorTier = com.example.model.TraderTier.PROP,
-                isAuthorVerified = true,
-                executionThesis = executionThesis.ifBlank { "Clean liquidity sweep into order block." },
-                psychologyNote = psychologyNotes.ifBlank { "Disciplined execution. Plan respected 100%." },
-                planAdherencePercent = 100,
-                disciplineScore = 5.0,
+                executionThesis = executionThesis.trim(),
+                psychologyNote = psychologyNotes.trim().ifBlank { null },
                 tags = selectedTags,
-                chartImageUri = storedChart,
-                brokerName = "IC Markets (cTrader Raw)",
-                slippagePips = 0.1,
-                durationText = if (status == TradeStatus.OPEN) "Running" else "Closed"
+                chartImageUri = storedChart
             )
 
             val localId = repository.insertTrade(trade)
