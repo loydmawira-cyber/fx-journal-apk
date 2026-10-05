@@ -8,6 +8,11 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+val releaseStoreFile = System.getenv("FX_UPLOAD_STORE_FILE")
+val releaseStorePassword = System.getenv("FX_UPLOAD_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("FX_UPLOAD_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("FX_UPLOAD_KEY_PASSWORD")
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -22,6 +27,14 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  signingConfigs {
+    create("release") {
+      releaseStoreFile?.let { storeFile = file(it) }
+      releaseStorePassword?.let { storePassword = it }
+      releaseKeyAlias?.let { keyAlias = it }
+      releaseKeyPassword?.let { keyPassword = it }
+    }
+  }
   buildTypes {
     release {
       isCrunchPngs = false
@@ -29,6 +42,7 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // No signingConfig set â€” produces an unsigned release AAB/APK for now.
       // Add a signingConfig here later when you're ready to sign for release.
+      signingConfig = signingConfigs.getByName("release")
     }
     // debug build type uses AGP's default auto-generated debug signing config â€”
     // no keystore file needed, works out of the box on any machine/CI runner.
