@@ -1,13 +1,20 @@
 package com.example.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -16,14 +23,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.BuildConfig
 import com.example.ui.FxViewModel
 import com.example.ui.theme.ElectricCyan
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
@@ -36,6 +47,11 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
     var showPrivacyEditor by remember { mutableStateOf(false) }
     var showNotificationEditor by remember { mutableStateOf(false) }
     val notificationPreferences by viewModel.notificationPreferences.collectAsStateWithLifecycle()
+    var showPerformance by remember { mutableStateOf(false) }
+    var showHelpCenter by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val profileStats = remember(trades) { calculateProfileStatistics(trades) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("settings_screen_container"),
@@ -64,17 +80,16 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
             }
         }
         item {
-            val mine = trades.filter { it.authorHandle == user?.handle }
-            val wins = mine.count { it.rMultiple > 0 }
             SettingsGroup("Profile statistics") {
-                SettingsItem(Icons.Default.Analytics, "Performance", "${mine.size} posts • $wins wins • ${if (mine.isEmpty()) 0 else wins * 100 / mine.size}% win rate") { viewModel.showToast("Profile statistics updated from your journal") }
+                val winRate = profileStats.winRatePercent?.let { String.format(Locale.US, "%.0f%% win rate", it) } ?: "No decisive results yet"
+                SettingsItem(Icons.Default.Analytics, "Performance", "${profileStats.totalTrades} journal trades • $winRate") { showPerformance = true }
                 SettingsItem(Icons.Default.CloudSync, "Backup and sync", "Bookmarks, profile and recently viewed posts") { viewModel.syncUserData() }
             }
         }
         item {
             SettingsGroup("Support") {
-                SettingsItem(Icons.Default.Help, "Help Center") { viewModel.showToast("Opening Help Center...") }
-                SettingsItem(Icons.Default.Info, "About FX Journal") { viewModel.showToast("FX Journal v2.4.0") }
+                SettingsItem(Icons.Default.Help, "Help Center", "FAQs and contact support") { showHelpCenter = true }
+                SettingsItem(Icons.Default.Info, "About FX Journal", "Version ${BuildConfig.VERSION_NAME}") { showAbout = true }
             }
         }
         item {
@@ -89,6 +104,138 @@ fun SettingsScreen(viewModel: FxViewModel, onLogout: () -> Unit) {
     if (showPinEditor) PinEditor(viewModel) { showPinEditor = false }
     if (showPrivacyEditor) PrivacyEditor(user?.publicPostAudience ?: "everyone", viewModel) { showPrivacyEditor = false }
     if (showNotificationEditor) NotificationPreferencesDialog(notificationPreferences, viewModel) { showNotificationEditor = false }
+    if (showPerformance) ProfilePerformanceDialog(profileStats) { showPerformance = false }
+    if (showHelpCenter) HelpCenterDialog(onEmailSupport = { openSupportEmail(context) }) { showHelpCenter = false }
+    if (showAbout) AboutDialog(onClose = { showAbout = false }, onEmailSupport = { openSupportEmail(context) })
+}
+
+private const val SUPPORT_EMAIL = "smarttechlab.apps@gmail.com"
+
+private fun openSupportEmail(context: Context) {
+    val intent = Intent(Intent.ACTION_SENDTO).apply {
+        data = Uri.parse("mailto:$SUPPORT_EMAIL")
+        putExtra(Intent.EXTRA_SUBJECT, "FX Journal support")
+        putExtra(
+            Intent.EXTRA_TEXT,
+            "Hi FX Journal Support,\n\nApp version: ${BuildConfig.VERSION_NAME}\n\nPlease describe how we can help.\n"
+        )
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        Toast.makeText(context, "No email app found. You can email $SUPPORT_EMAIL", Toast.LENGTH_LONG).show()
+    }
+}
+
+@Composable
+private fun ProfilePerformanceDialog(stats: ProfileStatistics, onClose: () -> Unit) {
+    val moneyFormat = remember { NumberFormat.getCurrencyInstance(Locale.US) }
+    val winRate = stats.winRatePercent?.let { String.format(Locale.US, "%.1f%%", it) } ?: "—"
+    val averageR = stats.averageR?.let { String.format(Locale.US, "%.2fR", it) } ?: "—"
+    val netR = String.format(Locale.US, "%.2fR", stats.netR)
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Profile performance") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Calculated from your personal journal. Community posts are not included.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PerformanceMetric("Journal trades", stats.totalTrades.toString(), Modifier.weight(1f))
+                    PerformanceMetric("Win rate", winRate, Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PerformanceMetric("Open", stats.openTrades.toString(), Modifier.weight(1f))
+                    PerformanceMetric("Completed", stats.completedTrades.toString(), Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PerformanceMetric("Net P&L", moneyFormat.format(stats.netProfitDollars), Modifier.weight(1f))
+                    PerformanceMetric("Net R", netR, Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PerformanceMetric("Wins", stats.wins.toString(), Modifier.weight(1f))
+                    PerformanceMetric("Losses", stats.losses.toString(), Modifier.weight(1f))
+                }
+                Text("Average R: $averageR", style = MaterialTheme.typography.bodyMedium)
+                Text("Break-even: ${stats.breakevens}  •  Cancelled: ${stats.cancelled}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Win rate = wins ÷ (wins + losses); break-even, open, and cancelled trades are excluded. P&L and R totals include completed trades only.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (stats.totalTrades == 0) {
+                    Text("Log a trade to start seeing your performance statistics.", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text("Done") } }
+    )
+}
+
+@Composable
+private fun PerformanceMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun HelpCenterDialog(onEmailSupport: () -> Unit, onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Help Center") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HelpAnswer("How do I log a trade?", "Tap the + button, enter the setup and outcome details, then save it to your journal.")
+                HelpAnswer("Where are my journal entries?", "Open Personal Journal from the bottom navigation. Entries are stored on this device and can sync to your signed-in account when you use Backup and sync.")
+                HelpAnswer("How do I share a setup?", "Open a journal trade and use its share action. Review the audience before publishing; public posts can be visible to other traders.")
+                HelpAnswer("How do I get more help?", "Email support with the app version and a short description of the issue. Never send your password or brokerage login details.")
+                Text("Support email", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SelectionContainer { Text(SUPPORT_EMAIL, style = MaterialTheme.typography.bodyMedium) }
+                Button(onClick = onEmailSupport, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Email, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Email support")
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text("Done") } }
+    )
+}
+
+@Composable
+private fun HelpAnswer(question: String, answer: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(question, style = MaterialTheme.typography.titleSmall)
+        Text(answer, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun AboutDialog(onClose: () -> Unit, onEmailSupport: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("About FX Journal") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleSmall)
+                Text("A journal for recording forex setups, reviewing trading decisions, and learning from your history.", style = MaterialTheme.typography.bodyMedium)
+                Text("Support: $SUPPORT_EMAIL", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text("Done") } },
+        dismissButton = { TextButton(onClick = onEmailSupport) { Text("Contact support") } }
+    )
 }
 
 @Composable
