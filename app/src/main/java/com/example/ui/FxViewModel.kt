@@ -265,9 +265,15 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 if (chart != null) shared["chartB64"] = chart
                 publicRef.set(shared, SetOptions.merge())
+                    .addOnSuccessListener { securityPrefs.edit().putString("pub_$docId", "1").apply() }
                     .addOnFailureListener { android.util.Log.e("FxViewModel", "Publishing trade failed", it) }
             } else {
-                publicRef.delete()
+                // "1" = published, "0" = known not published, absent = unknown (delete once to be safe)
+                if (securityPrefs.getString("pub_$docId", null) != "0") {
+                    publicRef.delete().addOnSuccessListener {
+                        securityPrefs.edit().putString("pub_$docId", "0").apply()
+                    }
+                }
             }
         }
     }
@@ -391,6 +397,11 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                     firestore.collection("users").document(firebaseUser.uid).get()
                         .addOnSuccessListener { document ->
                             if (document != null && document.exists()) {
+                                // Email lives only in Firebase Auth; remove the old public copy
+                                if (document.contains("email")) {
+                                    firestore.collection("users").document(firebaseUser.uid)
+                                        .update("email", FieldValue.delete())
+                                }
                                 val name = document.getString("name")?.takeIf { it.isNotBlank() }
                                     ?: securityPrefs.getString("profile_name", null)
                                     ?: firebaseUser.displayName?.takeIf { it.isNotBlank() }
@@ -877,7 +888,6 @@ class FxViewModel(application: Application) : AndroidViewModel(application) {
                 if (user != null) {
                     val userData = hashMapOf(
                         "name" to name,
-                        "email" to email,
                         "handle" to "@${name.replace(" ", "").lowercase()}",
                         "uid" to user.uid
                     )
